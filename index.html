@@ -38,20 +38,11 @@ main{flex:1;display:flex;overflow:hidden;position:relative;background:#000}
 #graph-container{flex:1;position:relative;overflow:hidden;background:#000}
 svg#graph{width:100%;height:100%;display:block;background:#000}
 .link{stroke-opacity:.5;fill:none;stroke-width:1.5}
-.link.cross{stroke:var(--cross);stroke-width:2.5;stroke-opacity:.85;stroke-dasharray:6,3}
+.link.cross{stroke:var(--cross);stroke-width:1.5;stroke-opacity:.35;stroke-dasharray:5,5}
 .node circle{cursor:pointer;stroke-width:2;transition:all .15s}
 .node:hover circle{stroke-width:3.5;filter:brightness(1.4)}
 .node text{pointer-events:none;user-select:none;text-anchor:middle;dominant-baseline:middle}
-.cat-math circle{fill:#0f2a38;stroke:var(--math)}
-.cat-lang circle{fill:#1e1030;stroke:var(--lang)}
-.cat-sci  circle{fill:#0a2018;stroke:var(--sci)}
-.cat-soc  circle{fill:#251408;stroke:var(--soc)}
-.status-mastered circle{filter:drop-shadow(0 0 4px currentColor)}
-.status-mastered.cat-math circle{stroke:var(--mastered);fill:#0f3028}
-.status-mastered.cat-lang circle{stroke:var(--mastered);fill:#1a2030}
-.status-mastered.cat-sci  circle{stroke:var(--mastered);fill:#0a2820}
-.status-mastered.cat-soc  circle{stroke:var(--mastered);fill:#201808}
-.status-weak circle{stroke:var(--weak)!important;stroke-width:3!important}
+.status-mastered circle{filter:drop-shadow(0 0 6px var(--mastered))}
 .prob-dot{transition:opacity .1s,transform .15s;transform-origin:center}
 .prob-dot:hover{opacity:.7;transform:scale(1.7)}
 #sidebar{width:280px;min-width:220px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .3s}
@@ -139,6 +130,7 @@ textarea#prob-input:focus{outline:none;border-color:var(--cross)}
       <input type="checkbox" id="cross-toggle" checked onchange="toggleCross()">
       <span style="color:var(--cross)">✦</span> 教科横断
     </label>
+    <button class="hdr-btn" onclick="openCurriculum()" style="border-color:#818cf8;color:#818cf8">📅 カリキュラム</button>
     <button class="hdr-btn primary" onclick="openAddModal()">＋ 問題を追加</button>
   </div>
 </header>
@@ -351,6 +343,41 @@ function deriveStatus(id){
   return'learning';
 }
 
+
+/* ══════════ MASTERY COLOR ══════════ */
+const BASE_FILL = {math:'#0f2a38',lang:'#1e1030',sci:'#0a2018',soc:'#251408'};
+const BASE_STROKE = {math:'#38bdf8',lang:'#a78bfa',sci:'#34d399',soc:'#fb923c'};
+// Mastery levels → progressively more saturated/bright fill
+function masteryFill(d) {
+  const st = deriveStatus(d.id);
+  const pct = masteryPct(d.id); // 0–1
+  const cat = d.cat;
+  // interpolate from dim base → vivid saturated
+  const fills = {
+    math: ['#0f2a38','#1a4860','#1e5a78','#1a6a90'],
+    lang: ['#1e1030','#2d1a50','#3d2070','#4a2890'],
+    sci:  ['#0a2018','#123828','#1a5038','#1e6845'],
+    soc:  ['#251408','#3a2010','#502c14','#6a3a18'],
+  };
+  const idx = st==='mastered'?3:st==='learning'?2:st==='weak'?1:0;
+  return fills[cat]?.[idx] || BASE_FILL[cat];
+}
+function masteryStroke(d) {
+  const st = deriveStatus(d.id);
+  if(st==='weak') return 'var(--weak)';
+  if(st==='mastered') return 'var(--mastered)';
+  if(st==='learning') {
+    // slightly brighter version of subject color
+    return {math:'#60d0ff',lang:'#c4a8ff',sci:'#5ef5c0',soc:'#ffb060'}[d.cat] || BASE_STROKE[d.cat];
+  }
+  return BASE_STROKE[d.cat];
+}
+function masteryPct(id) {
+  const ps = problems.filter(p=>p.nodeId===id);
+  if(!ps.length) return 0;
+  return ps.filter(p=>p.result==='correct').length / ps.length;
+}
+
 /* ══════════ GRAPH ══════════ */
 let simulation;
 function buildGraph(){
@@ -383,11 +410,21 @@ function buildGraph(){
   nodes.forEach(n=>{const c=sc[n.cat]||{x:W/2,y:H/2};n.x=c.x+(Math.random()-.5)*140;n.y=c.y+(Math.random()-.5)*140});
 
   simulation=d3.forceSimulation(nodes)
-    .force('link',d3.forceLink(links).id(d=>d.id).distance(d=>d.cross?200:80).strength(d=>d.cross?.12:.5))
-    .force('charge',d3.forceManyBody().strength(-260))
-    .force('collision',d3.forceCollide(30))
-    .force('x',d3.forceX(n=>sc[n.cat]?.x||W/2).strength(.1))
-    .force('y',d3.forceY(n=>sc[n.cat]?.y||H/2).strength(.1));
+    .force('link',d3.forceLink(links).id(d=>d.id).distance(d=>d.cross?200:80).strength(d=>d.cross?.08:.4))
+    .force('charge',d3.forceManyBody().strength(-220).distanceMax(300))
+    .force('collision',d3.forceCollide(32))
+    .force('x',d3.forceX(n=>sc[n.cat]?.x||W/2).strength(.07))
+    .force('y',d3.forceY(n=>sc[n.cat]?.y||H/2).strength(.07))
+    .alphaDecay(0.015)
+    .velocityDecay(0.35);
+  // gentle idle drift
+  function idleDrift(){
+    if(simulation.alpha()<0.01){
+      simulation.alpha(0.03).restart();
+    }
+    setTimeout(idleDrift, 4000);
+  }
+  setTimeout(idleDrift, 3000);
 
   const linkSel=g.append('g').selectAll('line').data(links).enter().append('line')
     .attr('class',d=>`link${d.cross?' cross':''}`)
@@ -400,10 +437,13 @@ function buildGraph(){
       .on('start',(e,d)=>{if(!e.active)simulation.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y})
       .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y})
       .on('end',(e,d)=>{if(!e.active)simulation.alphaTarget(0);d.fx=null;d.fy=null}))
-    .on('click',(e,d)=>{e.stopPropagation();openSidebar(d)})
+    .on('click',(e,d)=>{e.stopPropagation();focusNode(d);openSidebar(d)})
     .on('mousemove',showTooltip).on('mouseleave',hideTooltip);
 
-  nodeSel.append('circle').attr('r',d=>d.critical?17:13);
+  nodeSel.append('circle').attr('r',d=>d.critical?17:13)
+    .attr('fill', d => masteryFill(d))
+    .attr('stroke', d => masteryStroke(d))
+    .attr('stroke-width', d => deriveStatus(d.id)==='weak'?3:2);
 
   // subject label inside node
   nodeSel.append('text').attr('y',1).attr('font-size',8).attr('font-weight',700)
@@ -458,6 +498,32 @@ function updateStats(nodes){
     <div class="stat-chip">苦手 <b style="color:var(--weak)">${weak}</b></div>
     <div class="stat-chip">問題 <b>${problems.length}</b></div>
     <div class="stat-chip" style="color:var(--cross)">横断 <b>${crossN}</b>本</div>`;
+}
+
+
+/* ══════════ FOCUS ══════════ */
+function focusNode(d) {
+  const svgEl = d3.select('#graph');
+  const cont = document.getElementById('graph-container');
+  const W = cont.clientWidth, H = cont.clientHeight;
+  const scale = 1.8;
+  const tx = W/2 - d.x * scale;
+  const ty = H/2 - d.y * scale;
+  svgEl.transition().duration(600).ease(d3.easeCubicInOut)
+    .call(d3.zoom().transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+  // pulse ring
+  const g = svgEl.select('g');
+  const pulse = g.append('circle')
+    .attr('cx', d.x).attr('cy', d.y)
+    .attr('r', d.critical?17:13)
+    .attr('fill','none')
+    .attr('stroke','var(--cross)')
+    .attr('stroke-width', 2)
+    .attr('opacity', 0.9);
+  pulse.transition().duration(700).ease(d3.easeExpOut)
+    .attr('r', d.critical?50:40)
+    .attr('opacity', 0)
+    .remove();
 }
 
 /* ══════════ FILTER ══════════ */
@@ -784,6 +850,197 @@ function closeQuiz() {
 }
 
 
+
+/* ══════════ DRAW CANVAS ══════════ */
+let drawCtx=null, drawActive=false, drawColor='#f1f5f9', drawLast=null;
+function initCanvas(){
+  const cv=document.getElementById('draw-canvas');
+  if(!cv)return;
+  const dpr=window.devicePixelRatio||1;
+  cv.width=cv.offsetWidth*dpr; cv.height=140*dpr;
+  drawCtx=cv.getContext('2d');
+  drawCtx.scale(dpr,dpr);
+  drawCtx.lineCap='round';drawCtx.lineJoin='round';drawCtx.lineWidth=2;
+  drawCtx.strokeStyle='#f1f5f9';
+  const pos=(e)=>{
+    const r=cv.getBoundingClientRect();
+    const t=e.touches?e.touches[0]:e;
+    return {x:(t.clientX-r.left),y:(t.clientY-r.top)};
+  };
+  const start=(e)=>{e.preventDefault();drawActive=true;drawLast=pos(e);drawCtx.beginPath();drawCtx.moveTo(drawLast.x,drawLast.y)};
+  const move=(e)=>{
+    if(!drawActive)return;e.preventDefault();
+    const p=pos(e);
+    if(drawColor==='eraser'){drawCtx.clearRect(p.x-12,p.y-12,24,24)}
+    else{drawCtx.strokeStyle=drawColor;drawCtx.lineWidth=2;drawCtx.lineTo(p.x,p.y);drawCtx.stroke();drawCtx.beginPath();drawCtx.moveTo(p.x,p.y);}
+    drawLast=p;
+  };
+  const end=()=>{drawActive=false;drawCtx.beginPath()};
+  cv.addEventListener('mousedown',start);cv.addEventListener('mousemove',move);cv.addEventListener('mouseup',end);cv.addEventListener('mouseleave',end);
+  cv.addEventListener('touchstart',start,{passive:false});cv.addEventListener('touchmove',move,{passive:false});cv.addEventListener('touchend',end);
+}
+function setDrawColor(c){
+  drawColor=c;
+  document.getElementById('dc-pen').style.borderColor=c==='eraser'?'transparent':'var(--cross)';
+}
+function clearCanvas(){const cv=document.getElementById('draw-canvas');if(cv&&drawCtx)drawCtx.clearRect(0,0,cv.width,cv.height);}
+
+// init canvas when quiz opens
+const _origOpenQuiz = openQuiz;
+openQuiz = function(nodeId){
+  _origOpenQuiz(nodeId);
+  setTimeout(()=>{initCanvas();clearCanvas();},100);
+};
+
+/* ══════════ CURRICULUM ══════════ */
+// 四谷大塚 予習シリーズ カリキュラム（枠組み・AI推定）
+const CURRICULUM = {
+  math: [
+    {week:1, title:'整数と小数', nodeIds:['m01']},
+    {week:2, title:'分数の計算', nodeIds:['m02']},
+    {week:3, title:'四則混合・計算のきまり', nodeIds:['m03']},
+    {week:4, title:'約数と倍数', nodeIds:['m04']},
+    {week:5, title:'素因数分解・余り', nodeIds:['m05','m06']},
+    {week:6, title:'割合の基本', nodeIds:['m07','m08']},
+    {week:7, title:'比の基本', nodeIds:['m09','m10']},
+    {week:8, title:'売買損益', nodeIds:['m11']},
+    {week:9, title:'速さの基本', nodeIds:['m12']},
+    {week:10,title:'旅人算', nodeIds:['m13']},
+    {week:11,title:'通過算・流水算・時計算', nodeIds:['m14','m15']},
+    {week:12,title:'平面図形の基本', nodeIds:['m16']},
+    {week:13,title:'面積の計算', nodeIds:['m17']},
+    {week:14,title:'相似・縮図', nodeIds:['m18']},
+    {week:15,title:'円・おうぎ形', nodeIds:['m19']},
+    {week:16,title:'立体図形・体積', nodeIds:['m20']},
+    {week:17,title:'鶴亀算・差集め算', nodeIds:['m21','m22']},
+    {week:18,title:'仕事算・ニュートン算', nodeIds:['m23','m25']},
+    {week:19,title:'濃度', nodeIds:['m24']},
+    {week:20,title:'植木算・数列', nodeIds:['m26']},
+    {week:21,title:'周期・規則性', nodeIds:['m27']},
+    {week:22,title:'場合の数', nodeIds:['m28']},
+    {week:23,title:'統計・グラフ', nodeIds:['m29']},
+  ],
+  lang: [
+    {week:1, title:'漢字の読み書き①', nodeIds:['l01']},
+    {week:2, title:'語彙・慣用句①', nodeIds:['l02']},
+    {week:3, title:'ことわざ・故事成語', nodeIds:['l03']},
+    {week:4, title:'文法・品詞', nodeIds:['l04']},
+    {week:5, title:'敬語', nodeIds:['l05']},
+    {week:6, title:'指示語・接続語', nodeIds:['l06']},
+    {week:7, title:'段落構造の把握', nodeIds:['l07']},
+    {week:8, title:'主題・要旨', nodeIds:['l08']},
+    {week:9, title:'説明文読解①', nodeIds:['l09']},
+    {week:10,title:'物語文読解①', nodeIds:['l10']},
+    {week:11,title:'心情把握', nodeIds:['l11']},
+    {week:12,title:'詩・短歌・俳句', nodeIds:['l12']},
+    {week:13,title:'古文・漢文の基礎', nodeIds:['l13']},
+    {week:14,title:'理由・根拠の記述', nodeIds:['l14']},
+    {week:15,title:'字数制限作文', nodeIds:['l15']},
+  ],
+  sci: [
+    {week:1, title:'植物のつくり・光合成', nodeIds:['s01']},
+    {week:2, title:'動物・人体のしくみ', nodeIds:['s02']},
+    {week:3, title:'生態系・食物連鎖', nodeIds:['s03']},
+    {week:4, title:'てこ・滑車・輪軸', nodeIds:['s04']},
+    {week:5, title:'電流・回路・磁石', nodeIds:['s05']},
+    {week:6, title:'光・音・熱', nodeIds:['s06']},
+    {week:7, title:'力・ばね・浮力', nodeIds:['s07']},
+    {week:8, title:'燃焼・酸化・還元', nodeIds:['s08']},
+    {week:9, title:'溶解・水溶液', nodeIds:['s09']},
+    {week:10,title:'気体の性質・状態変化', nodeIds:['s10','s11']},
+    {week:11,title:'天気・気象・大気', nodeIds:['s12']},
+    {week:12,title:'地層・岩石・地震', nodeIds:['s13']},
+    {week:13,title:'太陽・月・星の動き', nodeIds:['s14']},
+    {week:14,title:'流水・侵食・堆積', nodeIds:['s15']},
+  ],
+  soc: [
+    {week:1, title:'日本の地形・気候', nodeIds:['c01']},
+    {week:2, title:'地図の読み方・統計', nodeIds:['c02']},
+    {week:3, title:'農業・林業・漁業', nodeIds:['c03']},
+    {week:4, title:'工業・エネルギー', nodeIds:['c04']},
+    {week:5, title:'貿易・交通・通信', nodeIds:['c05']},
+    {week:6, title:'都市・人口問題', nodeIds:['c06']},
+    {week:7, title:'縄文〜奈良時代', nodeIds:['c07']},
+    {week:8, title:'平安〜鎌倉時代', nodeIds:['c08']},
+    {week:9, title:'室町〜安土桃山', nodeIds:['c09']},
+    {week:10,title:'江戸時代', nodeIds:['c10']},
+    {week:11,title:'明治〜大正時代', nodeIds:['c11']},
+    {week:12,title:'昭和〜現代', nodeIds:['c12']},
+    {week:13,title:'政治のしくみ・憲法', nodeIds:['c13']},
+    {week:14,title:'経済・財政・税', nodeIds:['c14']},
+    {week:15,title:'国際社会・外交', nodeIds:['c15']},
+    {week:16,title:'環境・エネルギー問題', nodeIds:['c16']},
+  ],
+};
+
+let currTab='math';
+function openCurriculum(){
+  document.getElementById('overlay').style.display='block';
+  document.getElementById('curr-modal').style.display='block';
+  renderCurriculum();
+}
+function closeCurriculum(){
+  document.getElementById('curr-modal').style.display='none';
+  document.getElementById('overlay').style.display='none';
+}
+function setCurrTab(cat){
+  currTab=cat;
+  document.querySelectorAll('.curr-tab').forEach(b=>{
+    const isCat=b.getAttribute('onclick').includes("'"+cat+"'");
+    b.style.background=isCat?`var(--${cat})`:'transparent';
+    b.style.color=isCat?'#000':`var(--${cat})`;
+  });
+  renderCurriculum();
+}
+function renderCurriculum(){
+  const weeks=CURRICULUM[currTab]||[];
+  const SC2={math:'var(--math)',lang:'var(--lang)',sci:'var(--sci)',soc:'var(--soc)'};
+  const col=SC2[currTab];
+  let html='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px">';
+  weeks.forEach(w=>{
+    // check mastery of related nodes
+    const nodeStatuses=w.nodeIds.map(id=>deriveStatus(id));
+    const allMastered=nodeStatuses.every(s=>s==='mastered');
+    const anyWeak=nodeStatuses.some(s=>s==='weak');
+    const anyLearning=nodeStatuses.some(s=>s==='learning'||s==='mastered');
+    const hasProblems=w.nodeIds.some(id=>probsFor(id).length>0);
+
+    let bg='#0a0a0a', border='#2a2a2a', badge='', badgeCol='#64748b';
+    if(allMastered){bg='rgba(34,211,160,.08)';border='var(--mastered)';badge='✓ 定着';badgeCol='var(--mastered)'}
+    else if(anyWeak){bg='rgba(244,63,94,.06)';border='var(--weak)';badge='✗ 苦手';badgeCol='var(--weak)'}
+    else if(anyLearning){bg='rgba(245,158,11,.06)';border='var(--learning)';badge='◐ 学習中';badgeCol='var(--learning)'}
+
+    html+=`<div style="background:${bg};border:1.5px solid ${border};border-radius:10px;padding:10px 12px;cursor:pointer;transition:border-color .15s"
+      onmouseover="this.style.borderColor='${col}'" onmouseout="this.style.borderColor='${border}'"
+      onclick="closeCurriculum();setFilter('${currTab}');setTimeout(()=>{const n=NODES.find(x=>x.id==='${w.nodeIds[0]}');if(n)openSidebar(n)},300)">
+      <div style="font-size:9px;color:#64748b;font-weight:700;letter-spacing:1px;margin-bottom:4px">第${w.week}回</div>
+      <div style="font-size:12px;font-weight:600;color:#f1f5f9;line-height:1.4;margin-bottom:6px">${w.title}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;gap:4px;flex-wrap:wrap">${w.nodeIds.map(id=>{
+          const nd=NODES.find(x=>x.id===id);
+          const st=deriveStatus(id);
+          const dotCol=st==='mastered'?'var(--mastered)':st==='weak'?'var(--weak)':st==='learning'?'var(--learning)':'#2a2a2a';
+          return `<span style="width:8px;height:8px;border-radius:50%;background:${dotCol};display:inline-block;border:1px solid #333" title="${nd?.label||id}"></span>`;
+        }).join('')}</div>
+        ${badge?`<span style="font-size:9px;font-weight:700;color:${badgeCol}">${badge}</span>`:''}
+      </div>
+    </div>`;
+  });
+  html+='</div>';
+  // summary bar
+  const total=weeks.reduce((s,w)=>s+w.nodeIds.length,0);
+  const mastered=weeks.reduce((s,w)=>s+w.nodeIds.filter(id=>deriveStatus(id)==='mastered').length,0);
+  const pct=Math.round(mastered/total*100);
+  html=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:10px;padding:10px 14px">
+    <div style="flex:1;height:6px;background:#1a1a1a;border-radius:3px;overflow:hidden">
+      <div style="height:100%;background:${col};border-radius:3px;width:${pct}%;transition:width .5s"></div>
+    </div>
+    <div style="font-size:12px;color:#f1f5f9;font-weight:700;white-space:nowrap">${mastered} / ${total} 単元定着 <span style="color:${col}">${pct}%</span></div>
+  </div>`+html;
+  document.getElementById('curr-body').innerHTML=html;
+}
+
+
 /* ══════════ INIT ══════════ */
 buildGraph();
 window.addEventListener('resize',buildGraph);
@@ -814,12 +1071,46 @@ window.addEventListener('resize',buildGraph);
   <div id="qm-choices" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px"></div>
   <!-- feedback -->
   <div id="qm-feedback" style="display:none;border-radius:10px;padding:12px 16px;font-size:12px;line-height:1.7;margin-bottom:16px"></div>
+  <!-- drawing canvas -->
+  <div style="margin-bottom:14px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+      <span style="font-size:10px;color:#64748b;font-weight:700;letter-spacing:1px;text-transform:uppercase">✏️ 計算スペース</span>
+      <div style="display:flex;gap:6px">
+        <button onclick="setDrawColor('#f1f5f9')" id="dc-pen" style="background:#f1f5f9;border:2px solid #f1f5f9;border-radius:50%;width:18px;height:18px;cursor:pointer;padding:0"></button>
+        <button onclick="setDrawColor('#f43f5e')" style="background:#f43f5e;border:2px solid transparent;border-radius:50%;width:18px;height:18px;cursor:pointer;padding:0"></button>
+        <button onclick="setDrawColor('#38bdf8')" style="background:#38bdf8;border:2px solid transparent;border-radius:50%;width:18px;height:18px;cursor:pointer;padding:0"></button>
+        <button onclick="setDrawColor('eraser')" style="background:#333;border:1px solid #555;border-radius:4px;width:28px;height:18px;cursor:pointer;font-size:9px;color:#aaa;padding:0">消</button>
+        <button onclick="clearCanvas()" style="background:#1a1a1a;border:1px solid #333;border-radius:4px;padding:0 8px;height:18px;font-size:9px;color:#64748b;cursor:pointer;font-family:inherit">全消去</button>
+      </div>
+    </div>
+    <canvas id="draw-canvas" width="520" height="140" style="width:100%;height:140px;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:8px;cursor:crosshair;touch-action:none"></canvas>
+  </div>
   <!-- nav -->
   <div style="display:flex;justify-content:space-between;align-items:center">
     <div id="qm-result-summary" style="font-size:12px;color:#64748b"></div>
     <button id="qm-next-btn" onclick="quizNext()" style="background:var(--cross);border:none;color:#000;border-radius:10px;padding:9px 22px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;display:none">次の問題 →</button>
     <button id="qm-finish-btn" onclick="closeQuiz()" style="background:#22d3a0;border:none;color:#000;border-radius:10px;padding:9px 22px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;display:none">完了 ✓</button>
   </div>
+</div>
+
+
+<!-- CURRICULUM MODAL -->
+<div id="curr-modal" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(700px,96vw);background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:24px;z-index:30;display:none;box-shadow:0 24px 80px rgba(0,0,0,.9);max-height:88vh;overflow-y:auto">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+    <div>
+      <div style="font-size:10px;color:#818cf8;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px">四谷大塚 予習シリーズ</div>
+      <div style="font-size:15px;font-weight:700;color:#f1f5f9">カリキュラム進捗マップ</div>
+    </div>
+    <button onclick="closeCurriculum()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer">✕</button>
+  </div>
+  <!-- subject tabs -->
+  <div style="display:flex;gap:6px;margin-bottom:16px" id="curr-tabs">
+    <button class="curr-tab active" onclick="setCurrTab('math')" style="padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:2px solid var(--math);background:var(--math);color:#000">算数</button>
+    <button class="curr-tab" onclick="setCurrTab('lang')" style="padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:2px solid var(--lang);background:transparent;color:var(--lang)">国語</button>
+    <button class="curr-tab" onclick="setCurrTab('sci')" style="padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:2px solid var(--sci);background:transparent;color:var(--sci)">理科</button>
+    <button class="curr-tab" onclick="setCurrTab('soc')" style="padding:5px 14px;border-radius:20px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:2px solid var(--soc);background:transparent;color:var(--soc)">社会</button>
+  </div>
+  <div id="curr-body"></div>
 </div>
 
 </body>
