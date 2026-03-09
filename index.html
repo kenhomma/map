@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>4教科知識マップ — 中学受験</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap');
+:root {
+  --bg:#000;--surface:#111;--surface2:#1a1a1a;--border:#2a2a2a;
+  --text:#e2e8f0;--text-dim:#64748b;
+  --math:#38bdf8;--lang:#a78bfa;--sci:#34d399;--soc:#fb923c;
+  --mastered:#22d3a0;--learning:#f59e0b;--weak:#f43f5e;--unset:#2d3748;
+  --cross:#fde68a;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{background:#000;color:var(--text);font-family:'Noto Sans JP',sans-serif;height:100%;overflow:hidden}
+body{display:flex;flex-direction:column}
+header{display:flex;align-items:center;justify-content:space-between;padding:8px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;gap:10px;flex-wrap:wrap}
+.logo{font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);letter-spacing:2px;white-space:nowrap}
+.logo span{color:var(--cross);font-size:13px}
+.controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.subj-chips{display:flex;gap:4px}
+.subj-chip{padding:4px 10px;border-radius:20px;font-size:11px;cursor:pointer;font-weight:700;border:2px solid transparent;background:var(--surface2);color:var(--text-dim);font-family:inherit;transition:all .15s;white-space:nowrap}
+.subj-chip.math{border-color:var(--math);color:var(--math)}.subj-chip.lang{border-color:var(--lang);color:var(--lang)}
+.subj-chip.sci{border-color:var(--sci);color:var(--sci)}.subj-chip.soc{border-color:var(--soc);color:var(--soc)}
+.subj-chip.all{border-color:var(--cross);color:var(--cross)}
+.subj-chip.active.math{background:var(--math);color:#000}.subj-chip.active.lang{background:var(--lang);color:#000}
+.subj-chip.active.sci{background:var(--sci);color:#000}.subj-chip.active.soc{background:var(--soc);color:#000}
+.subj-chip.active.all{background:var(--cross);color:#000}
+.hdr-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 12px;font-size:12px;font-family:inherit;cursor:pointer;white-space:nowrap;transition:all .15s}
+.hdr-btn:hover{border-color:var(--cross);color:var(--cross)}
+.hdr-btn.primary{background:var(--cross);color:#000;border-color:var(--cross);font-weight:700}
+.cross-toggle{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-dim);cursor:pointer;white-space:nowrap;user-select:none}
+.cross-toggle input{accent-color:var(--cross);width:14px;height:14px;cursor:pointer}
+main{flex:1;display:flex;overflow:hidden;position:relative;background:#000}
+#graph-container{flex:1;position:relative;overflow:hidden;background:#000}
+svg#graph{width:100%;height:100%;display:block;background:#000}
+.link{stroke-opacity:.5;fill:none;stroke-width:1.5}
+.link.cross{stroke:var(--cross);stroke-width:2.5;stroke-opacity:.85;stroke-dasharray:6,3}
+.node circle{cursor:pointer;stroke-width:2;transition:all .15s}
+.node:hover circle{stroke-width:3.5;filter:brightness(1.4)}
+.node text{pointer-events:none;user-select:none;text-anchor:middle;dominant-baseline:middle}
+.cat-math circle{fill:#0f2a38;stroke:var(--math)}
+.cat-lang circle{fill:#1e1030;stroke:var(--lang)}
+.cat-sci  circle{fill:#0a2018;stroke:var(--sci)}
+.cat-soc  circle{fill:#251408;stroke:var(--soc)}
+.status-mastered circle{filter:drop-shadow(0 0 4px currentColor)}
+.status-mastered.cat-math circle{stroke:var(--mastered);fill:#0f3028}
+.status-mastered.cat-lang circle{stroke:var(--mastered);fill:#1a2030}
+.status-mastered.cat-sci  circle{stroke:var(--mastered);fill:#0a2820}
+.status-mastered.cat-soc  circle{stroke:var(--mastered);fill:#201808}
+.status-weak circle{stroke:var(--weak)!important;stroke-width:3!important}
+.prob-dot{transition:opacity .1s,transform .15s;transform-origin:center}
+.prob-dot:hover{opacity:.7;transform:scale(1.7)}
+#sidebar{width:280px;min-width:220px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .3s}
+#sidebar.collapsed{width:0;min-width:0}
+.sb-header{padding:12px 14px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.sb-title{font-size:13px;font-weight:700}
+.close-btn{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;line-height:1}
+.sb-body{flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.info-row{display:flex;justify-content:space-between;font-size:12px;color:var(--text-dim)}
+.info-row span:last-child{color:var(--text);font-weight:500}
+.sec-label{font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.chip-list{display:flex;flex-direction:column;gap:3px}
+.chip{background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;color:var(--text-dim);cursor:pointer;transition:border-color .1s}
+.chip:hover{border-color:var(--cross)}.chip.cross-edge{border-color:var(--cross);color:var(--cross)}
+.status-picker{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.s-btn{border:1.5px solid;border-radius:8px;padding:6px;font-size:11px;font-family:inherit;cursor:pointer;font-weight:600;background:var(--surface2);transition:all .15s}
+.s-btn.mastered{border-color:var(--mastered);color:var(--mastered)}.s-btn.learning{border-color:var(--learning);color:var(--learning)}
+.s-btn.weak{border-color:var(--weak);color:var(--weak)}.s-btn.unset{border-color:var(--border);color:var(--text-dim)}
+.s-btn.active{color:#000!important}
+.s-btn.mastered.active{background:var(--mastered)}.s-btn.learning.active{background:var(--learning)}
+.s-btn.weak.active{background:var(--weak)}.s-btn.unset.active{background:var(--unset)}
+.prob-item{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:7px 10px;font-size:11px;display:flex;flex-direction:column;gap:3px}
+.prob-item-top{display:flex;align-items:flex-start;gap:6px}
+.prob-text{color:var(--text);flex:1;line-height:1.5;word-break:break-all}
+.prob-badge-r{font-size:10px;font-weight:700;border-radius:4px;padding:2px 5px;flex-shrink:0}
+.pr-correct{background:rgba(34,211,160,.2);color:var(--mastered)}.pr-wrong{background:rgba(244,63,94,.2);color:var(--weak)}.pr-unknown{background:rgba(100,116,139,.2);color:var(--text-dim)}
+.prob-del{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:11px;flex-shrink:0}.prob-del:hover{color:var(--weak)}
+.prob-meta{color:var(--text-dim);font-size:10px}
+#add-modal{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(480px,92vw);background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;z-index:30;display:none;box-shadow:0 20px 60px rgba(0,0,0,.9)}
+#add-modal h3{font-size:14px;color:var(--cross);margin-bottom:14px;font-family:'Space Mono',monospace}
+.modal-close{float:right;background:none;border:none;color:var(--text-dim);font-size:18px;cursor:pointer}
+.f-label{font-size:11px;color:var(--text-dim);margin-bottom:5px;font-weight:500}
+.f-group{margin-bottom:12px}
+textarea#prob-input{width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-size:13px;font-family:'Noto Sans JP',sans-serif;resize:vertical;min-height:80px;line-height:1.6}
+textarea#prob-input:focus{outline:none;border-color:var(--cross)}
+.result-toggle{display:flex;gap:8px}
+.r-btn{flex:1;border-radius:8px;padding:7px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer;border:2px solid;background:var(--surface2);transition:all .15s}
+.r-btn.correct{border-color:var(--mastered);color:var(--mastered)}.r-btn.wrong{border-color:var(--weak);color:var(--weak)}.r-btn.unknown{border-color:var(--border);color:var(--text-dim)}
+.r-btn.active{color:#000!important}
+.r-btn.correct.active{background:var(--mastered)}.r-btn.wrong.active{background:var(--weak)}.r-btn.unknown.active{background:var(--unset)}
+#ai-area{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px;display:none}
+.ai-lbl{font-size:10px;color:var(--cross);font-weight:700;letter-spacing:1px;margin-bottom:6px}
+.ai-tags{display:flex;flex-wrap:wrap;gap:6px}
+.ai-tag{background:rgba(253,230,138,.1);border:1px solid var(--cross);border-radius:20px;padding:3px 12px;font-size:12px;color:var(--cross);cursor:pointer;font-weight:600;transition:all .15s}
+.ai-tag:hover,.ai-tag.selected{background:var(--cross);color:#000}
+.ai-reason{font-size:11px;color:var(--text-dim);margin-top:6px;line-height:1.5}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end}
+.btn-cancel{background:var(--surface2);border:1px solid var(--border);color:var(--text-dim);border-radius:8px;padding:7px 18px;font-size:12px;font-family:inherit;cursor:pointer}
+.btn-save{background:var(--cross);border:none;color:#000;border-radius:8px;padding:7px 18px;font-size:12px;font-weight:700;font-family:inherit;cursor:pointer}
+.btn-save:disabled{opacity:.4;cursor:default}
+#legend{position:absolute;bottom:12px;left:12px;background:rgba(0,0,0,.92);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;flex-direction:column;gap:5px;backdrop-filter:blur(6px);font-size:11px}
+.lg-row{display:flex;align-items:center;gap:7px;color:var(--text-dim)}
+.lg-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0;border:2px solid}
+.lg-line{width:22px;height:3px;border-radius:2px;flex-shrink:0}
+.lg-sec{font-size:9px;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+#stats-bar{position:absolute;top:8px;right:8px;display:flex;gap:5px;flex-wrap:wrap}
+.stat-chip{background:rgba(0,0,0,.9);border:1px solid var(--border);border-radius:20px;padding:3px 10px;font-size:11px;color:var(--text-dim)}
+.stat-chip b{color:var(--text)}
+#prob-popup{position:fixed;background:rgba(0,0,0,.97);border:1px solid var(--cross);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--text);pointer-events:none;z-index:100;display:none;max-width:260px;line-height:1.6;box-shadow:0 8px 32px rgba(0,0,0,.8)}
+.pp-res{font-size:11px;font-weight:700;margin-bottom:3px}
+#overlay{position:absolute;inset:0;background:rgba(0,0,0,.7);z-index:10;display:none}
+.tooltip{position:absolute;background:rgba(0,0,0,.95);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--text);pointer-events:none;z-index:50;display:none;max-width:230px;line-height:1.6}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+
+.qm-choice{background:#000;border:1.5px solid #2a2a2a;border-radius:10px;padding:11px 16px;font-size:13px;color:#e2e8f0;cursor:pointer;text-align:left;font-family:inherit;transition:all .15s;width:100%}
+.qm-choice:hover:not(:disabled){border-color:var(--cross);color:var(--cross)}
+.qm-choice.correct{border-color:var(--mastered);background:rgba(34,211,160,.1);color:var(--mastered)}
+.qm-choice.wrong{border-color:var(--weak);background:rgba(244,63,94,.1);color:var(--weak)}
+.qm-choice:disabled{cursor:default}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">4教科 <span>✦</span> KNOWLEDGE MAP</div>
+  <div class="controls">
+    <div class="subj-chips">
+      <button class="subj-chip all active" onclick="setFilter('all')">全体</button>
+      <button class="subj-chip math" onclick="setFilter('math')">算数</button>
+      <button class="subj-chip lang" onclick="setFilter('lang')">国語</button>
+      <button class="subj-chip sci"  onclick="setFilter('sci')">理科</button>
+      <button class="subj-chip soc"  onclick="setFilter('soc')">社会</button>
+    </div>
+    <label class="cross-toggle">
+      <input type="checkbox" id="cross-toggle" checked onchange="toggleCross()">
+      <span style="color:var(--cross)">✦</span> 教科横断
+    </label>
+    <button class="hdr-btn primary" onclick="openAddModal()">＋ 問題を追加</button>
+  </div>
+</header>
+<main>
+  <div id="graph-container">
+    <svg id="graph"></svg>
+    <div id="stats-bar"></div>
+    <div id="legend">
+      <div class="lg-sec">教科</div>
+      <div class="lg-row"><div class="lg-dot" style="background:#0f2a38;border-color:var(--math)"></div>算数</div>
+      <div class="lg-row"><div class="lg-dot" style="background:#1e1030;border-color:var(--lang)"></div>国語</div>
+      <div class="lg-row"><div class="lg-dot" style="background:#0a2018;border-color:var(--sci)"></div>理科</div>
+      <div class="lg-row"><div class="lg-dot" style="background:#251408;border-color:var(--soc)"></div>社会</div>
+      <div class="lg-sec">習熟度</div>
+      <div class="lg-row"><div class="lg-line" style="background:var(--mastered)"></div>定着（光輪）</div>
+      <div class="lg-row"><div class="lg-line" style="background:var(--weak)"></div>苦手（赤枠）</div>
+      <div class="lg-sec">リンク</div>
+      <div class="lg-row"><div class="lg-line" style="background:var(--cross)"></div>教科横断 ✦</div>
+      <div class="lg-sec">問題ドット</div>
+      <div class="lg-row"><svg width="10" height="10" style="flex-shrink:0"><circle cx="5" cy="5" r="4" fill="var(--mastered)"/></svg>正解</div>
+      <div class="lg-row"><svg width="10" height="10" style="flex-shrink:0"><line x1="1" y1="1" x2="9" y2="9" stroke="var(--weak)" stroke-width="2.5" stroke-linecap="round"/><line x1="9" y1="1" x2="1" y2="9" stroke="var(--weak)" stroke-width="2.5" stroke-linecap="round"/></svg>不正解</div>
+      <div class="lg-row"><svg width="10" height="10" style="flex-shrink:0"><path d="M5,1L9,5L5,9L1,5Z" fill="var(--text-dim)"/></svg>未採点</div>
+    </div>
+  </div>
+  <div id="sidebar" class="collapsed">
+    <div class="sb-header">
+      <span class="sb-title" id="sb-title">—</span>
+      <button class="close-btn" onclick="closeSidebar()">✕</button>
+    </div>
+    <div class="sb-body" id="sb-body"></div>
+  </div>
+</main>
+<div id="overlay" onclick="closeAllModals()"></div>
+<div id="add-modal">
+  <button class="modal-close" onclick="closeAllModals()">✕</button>
+  <h3>＋ 問題を追加</h3>
+  <div class="f-group">
+    <div class="f-label">問題文（AIが4教科の単元を自動判定）</div>
+    <textarea id="prob-input" placeholder="例：AとBが同じ地点から同時に出発して…&#10;例：下線部の漢字の読みを答えなさい…&#10;例：てこの左端から20cmの位置に…&#10;例：江戸幕府が定めた参勤交代とは…" rows="4" oninput="onProbInput()"></textarea>
+  </div>
+  <div class="f-group">
+    <div class="f-label">結果</div>
+    <div class="result-toggle">
+      <button class="r-btn correct" onclick="setResult('correct')">○ 正解</button>
+      <button class="r-btn wrong active" onclick="setResult('wrong')">✕ 不正解</button>
+      <button class="r-btn unknown" onclick="setResult('unknown')">― 未採点</button>
+    </div>
+  </div>
+  <div id="ai-area">
+    <div class="ai-lbl">✦ AI 単元判定（4教科）</div>
+    <div><span id="ai-spinner" style="font-size:12px;color:var(--text-dim)">判定中…</span></div>
+    <div class="ai-tags" id="ai-tags"></div>
+    <div class="ai-reason" id="ai-reason"></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn-cancel" onclick="closeAllModals()">キャンセル</button>
+    <button class="btn-save" id="btn-save" onclick="saveProblem()" disabled>追加する</button>
+  </div>
+</div>
+<div id="prob-popup"></div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+/* ══════════ FULL NODE DATA ══════════ */
+const NODES = [
+  // ── 算数 ──
+  {id:'m01',label:'整数・小数計算',   cat:'math',group:'数と計算',  critical:true},
+  {id:'m02',label:'分数の計算',       cat:'math',group:'数と計算',  critical:true},
+  {id:'m03',label:'四則混合計算',     cat:'math',group:'数と計算',  critical:true},
+  {id:'m04',label:'約数・倍数',       cat:'math',group:'数と計算',  critical:true},
+  {id:'m05',label:'素因数分解',       cat:'math',group:'数と計算'},
+  {id:'m06',label:'余りの計算・周期', cat:'math',group:'数と計算'},
+  {id:'m07',label:'割合の基本',       cat:'math',group:'割合・比',  critical:true},
+  {id:'m08',label:'百分率・歩合',     cat:'math',group:'割合・比'},
+  {id:'m09',label:'比の基本',         cat:'math',group:'割合・比',  critical:true},
+  {id:'m10',label:'比の応用',         cat:'math',group:'割合・比'},
+  {id:'m11',label:'売買損益',         cat:'math',group:'割合・比'},
+  {id:'m12',label:'速さの基本',       cat:'math',group:'速さ',      critical:true},
+  {id:'m13',label:'旅人算',           cat:'math',group:'速さ',      critical:true},
+  {id:'m14',label:'通過算・流水算',   cat:'math',group:'速さ'},
+  {id:'m15',label:'時計算',           cat:'math',group:'速さ'},
+  {id:'m16',label:'平面図形の基本',   cat:'math',group:'図形',      critical:true},
+  {id:'m17',label:'面積の計算',       cat:'math',group:'図形',      critical:true},
+  {id:'m18',label:'相似・縮図',       cat:'math',group:'図形',      critical:true},
+  {id:'m19',label:'円・おうぎ形',     cat:'math',group:'図形'},
+  {id:'m20',label:'立体図形・体積',   cat:'math',group:'図形'},
+  {id:'m21',label:'鶴亀算',           cat:'math',group:'文章題',    critical:true},
+  {id:'m22',label:'差集め算',         cat:'math',group:'文章題'},
+  {id:'m23',label:'仕事算',           cat:'math',group:'文章題'},
+  {id:'m24',label:'濃度',             cat:'math',group:'文章題'},
+  {id:'m25',label:'ニュートン算',     cat:'math',group:'文章題'},
+  {id:'m26',label:'植木算・数列',     cat:'math',group:'規則性'},
+  {id:'m27',label:'周期・規則性',     cat:'math',group:'規則性'},
+  {id:'m28',label:'場合の数',         cat:'math',group:'規則性',    critical:true},
+  {id:'m29',label:'統計・グラフ',     cat:'math',group:'データ'},
+  // ── 国語 ──
+  {id:'l01',label:'漢字の読み書き',   cat:'lang',group:'言語知識',  critical:true},
+  {id:'l02',label:'語彙・慣用句',     cat:'lang',group:'言語知識',  critical:true},
+  {id:'l03',label:'ことわざ・故事成語',cat:'lang',group:'言語知識'},
+  {id:'l04',label:'文法・品詞',       cat:'lang',group:'言語知識'},
+  {id:'l05',label:'敬語',             cat:'lang',group:'言語知識'},
+  {id:'l06',label:'指示語・接続語',   cat:'lang',group:'読解基礎',  critical:true},
+  {id:'l07',label:'段落構造の把握',   cat:'lang',group:'読解基礎',  critical:true},
+  {id:'l08',label:'主題・要旨',       cat:'lang',group:'読解基礎',  critical:true},
+  {id:'l09',label:'説明文読解',       cat:'lang',group:'読解応用',  critical:true},
+  {id:'l10',label:'物語文読解',       cat:'lang',group:'読解応用',  critical:true},
+  {id:'l11',label:'心情把握',         cat:'lang',group:'読解応用',  critical:true},
+  {id:'l12',label:'詩・短歌・俳句',   cat:'lang',group:'韻文'},
+  {id:'l13',label:'古文・漢文の基礎', cat:'lang',group:'韻文'},
+  {id:'l14',label:'理由・根拠説明',   cat:'lang',group:'記述',      critical:true},
+  {id:'l15',label:'字数制限作文',     cat:'lang',group:'記述'},
+  // ── 理科 ──
+  {id:'s01',label:'植物のつくり・光合成',cat:'sci',group:'生物'},
+  {id:'s02',label:'動物・人体のしくみ',  cat:'sci',group:'生物'},
+  {id:'s03',label:'生態系・食物連鎖',    cat:'sci',group:'生物'},
+  {id:'s04',label:'てこ・滑車・輪軸',    cat:'sci',group:'物理',  critical:true},
+  {id:'s05',label:'電流・回路・磁石',    cat:'sci',group:'物理',  critical:true},
+  {id:'s06',label:'光・音・熱',          cat:'sci',group:'物理'},
+  {id:'s07',label:'力・ばね・浮力',      cat:'sci',group:'物理',  critical:true},
+  {id:'s08',label:'燃焼・酸化・還元',    cat:'sci',group:'化学'},
+  {id:'s09',label:'溶解・水溶液',        cat:'sci',group:'化学',  critical:true},
+  {id:'s10',label:'気体の性質',          cat:'sci',group:'化学'},
+  {id:'s11',label:'状態変化・蒸留',      cat:'sci',group:'化学'},
+  {id:'s12',label:'天気・気象・大気',    cat:'sci',group:'地学'},
+  {id:'s13',label:'地層・岩石・地震',    cat:'sci',group:'地学'},
+  {id:'s14',label:'太陽・月・星の動き',  cat:'sci',group:'地学'},
+  {id:'s15',label:'流水・侵食・堆積',    cat:'sci',group:'地学'},
+  // ── 社会 ──
+  {id:'c01',label:'日本の地形・気候',    cat:'soc',group:'地理',  critical:true},
+  {id:'c02',label:'地図の読み方・統計',  cat:'soc',group:'地理',  critical:true},
+  {id:'c03',label:'農業・林業・漁業',    cat:'soc',group:'地理'},
+  {id:'c04',label:'工業・エネルギー',    cat:'soc',group:'地理'},
+  {id:'c05',label:'貿易・交通・通信',    cat:'soc',group:'地理'},
+  {id:'c06',label:'都市・人口問題',      cat:'soc',group:'地理'},
+  {id:'c07',label:'縄文〜奈良時代',      cat:'soc',group:'歴史'},
+  {id:'c08',label:'平安〜鎌倉時代',      cat:'soc',group:'歴史'},
+  {id:'c09',label:'室町〜安土桃山時代',  cat:'soc',group:'歴史'},
+  {id:'c10',label:'江戸時代',            cat:'soc',group:'歴史',  critical:true},
+  {id:'c11',label:'明治〜大正時代',      cat:'soc',group:'歴史',  critical:true},
+  {id:'c12',label:'昭和〜現代',          cat:'soc',group:'歴史',  critical:true},
+  {id:'c13',label:'政治のしくみ・憲法',  cat:'soc',group:'公民',  critical:true},
+  {id:'c14',label:'経済・財政・税',      cat:'soc',group:'公民'},
+  {id:'c15',label:'国際社会・外交',      cat:'soc',group:'公民'},
+  {id:'c16',label:'環境・エネルギー問題',cat:'soc',group:'公民'},
+];
+
+const EDGES = [
+  // 算数内
+  {s:'m01',t:'m03'},{s:'m02',t:'m03'},{s:'m03',t:'m04'},{s:'m04',t:'m05'},{s:'m04',t:'m06'},
+  {s:'m03',t:'m07'},{s:'m07',t:'m08'},{s:'m07',t:'m09'},{s:'m09',t:'m10'},{s:'m07',t:'m11'},
+  {s:'m07',t:'m12'},{s:'m09',t:'m12'},{s:'m12',t:'m13'},{s:'m12',t:'m14'},{s:'m12',t:'m15'},
+  {s:'m01',t:'m16'},{s:'m16',t:'m17'},{s:'m16',t:'m19'},{s:'m17',t:'m18'},{s:'m18',t:'m20'},
+  {s:'m03',t:'m21'},{s:'m07',t:'m21'},{s:'m03',t:'m22'},{s:'m07',t:'m23'},{s:'m07',t:'m24'},
+  {s:'m07',t:'m25'},{s:'m12',t:'m25'},{s:'m04',t:'m26'},{s:'m04',t:'m27'},{s:'m04',t:'m28'},
+  {s:'m03',t:'m29'},
+  // 国語内
+  {s:'l01',t:'l02'},{s:'l02',t:'l03'},{s:'l01',t:'l04'},{s:'l04',t:'l06'},{s:'l06',t:'l07'},
+  {s:'l07',t:'l08'},{s:'l08',t:'l09'},{s:'l08',t:'l10'},{s:'l10',t:'l11'},{s:'l08',t:'l12'},
+  {s:'l01',t:'l13'},{s:'l08',t:'l14'},{s:'l11',t:'l14'},{s:'l14',t:'l15'},
+  // 理科内
+  {s:'s01',t:'s03'},{s:'s02',t:'s03'},{s:'s04',t:'s07'},{s:'s08',t:'s10'},{s:'s09',t:'s10'},
+  {s:'s09',t:'s11'},{s:'s12',t:'s13'},{s:'s13',t:'s15'},
+  // 社会内
+  {s:'c01',t:'c02'},{s:'c01',t:'c03'},{s:'c01',t:'c04'},{s:'c02',t:'c03'},{s:'c04',t:'c05'},
+  {s:'c03',t:'c06'},{s:'c07',t:'c08'},{s:'c08',t:'c09'},{s:'c09',t:'c10'},{s:'c10',t:'c11'},
+  {s:'c11',t:'c12'},{s:'c13',t:'c14'},{s:'c14',t:'c15'},{s:'c15',t:'c16'},
+  // ── 教科横断エッジ ──
+  // 国語→算数（読解力が文章題の前提）
+  {s:'l08',t:'m21',cross:true},{s:'l09',t:'m21',cross:true},
+  {s:'l08',t:'m23',cross:true},{s:'l09',t:'m13',cross:true},
+  // 算数→理科（計算力が物理・化学の前提）
+  {s:'m07',t:'s04',cross:true},{s:'m09',t:'s04',cross:true},
+  {s:'m07',t:'s09',cross:true},{s:'m17',t:'s04',cross:true},
+  {s:'m07',t:'s05',cross:true},{s:'m07',t:'s07',cross:true},
+  // 算数→社会
+  {s:'m18',t:'c02',cross:true},{s:'m07',t:'c04',cross:true},
+  {s:'m29',t:'c02',cross:true},
+  // 理科→社会
+  {s:'s12',t:'c01',cross:true},{s:'s13',t:'c01',cross:true},
+  {s:'s12',t:'c07',cross:true},
+  {s:'s14',t:'c07',cross:true},
+  {s:'s12',t:'c16',cross:true},
+  {s:'c01',t:'s12',cross:true},
+  // 社会→国語（時事・現代文）
+  {s:'c12',t:'l09',cross:true},{s:'c13',t:'l09',cross:true},
+  // 国語→理科・社会（記述力）
+  {s:'l14',t:'s04',cross:true},{s:'l14',t:'c13',cross:true},
+];
+
+/* ══════════ STATE ══════════ */
+const SK_PROBS='kg4f_probs',SK_STATUS='kg4f_status';
+let problems=JSON.parse(localStorage.getItem(SK_PROBS)||'[]');
+let nodeStatus=JSON.parse(localStorage.getItem(SK_STATUS)||'{}');
+let currentFilter='all',showCross=true,selectedNodeId=null;
+let curResult='wrong',aiSelTag=null,aiDebounce=null,presetNodeId=null,aiN=0;
+
+const SC={math:'var(--math)',lang:'var(--lang)',sci:'var(--sci)',soc:'var(--soc)'};
+const SL={math:'算数',lang:'国語',sci:'理科',soc:'社会'};
+
+function saveProbs(){localStorage.setItem(SK_PROBS,JSON.stringify(problems))}
+function saveStatus(){localStorage.setItem(SK_STATUS,JSON.stringify(nodeStatus))}
+function probsFor(id){return problems.filter(p=>p.nodeId===id)}
+function deriveStatus(id){
+  const ps=problems.filter(p=>p.nodeId===id);
+  if(!ps.length)return nodeStatus[id]||'unset';
+  const cor=ps.filter(p=>p.result==='correct').length;
+  const wr=ps.filter(p=>p.result==='wrong').length;
+  if(cor/ps.length>=0.7)return'mastered';
+  if(wr/ps.length>=0.5)return'weak';
+  return'learning';
+}
+
+/* ══════════ GRAPH ══════════ */
+let simulation;
+function buildGraph(){
+  const cont=document.getElementById('graph-container');
+  const W=cont.clientWidth,H=cont.clientHeight;
+  d3.select('#graph').selectAll('*').remove();
+  const svgEl=d3.select('#graph').attr('viewBox',`0 0 ${W} ${H}`);
+
+  // Background rect — ensures black even in iframe
+  svgEl.append('rect').attr('width',W).attr('height',H).attr('fill','#000');
+
+  const defs=svgEl.append('defs');
+  ['math','lang','sci','soc','cross'].forEach(t=>{
+    const col=t==='cross'?'#fde68a':t==='math'?'#38bdf8':t==='lang'?'#a78bfa':t==='sci'?'#34d399':'#fb923c';
+    defs.append('marker').attr('id',`arr-${t}`)
+      .attr('viewBox','0 -4 8 8').attr('refX',22).attr('refY',0)
+      .attr('markerWidth',5).attr('markerHeight',5).attr('orient','auto')
+      .append('path').attr('d','M0,-4L8,0L0,4').attr('fill',col);
+  });
+
+  const g=svgEl.append('g');
+  svgEl.call(d3.zoom().scaleExtent([.1,5]).on('zoom',e=>g.attr('transform',e.transform)));
+
+  const visIds=currentFilter==='all'?new Set(NODES.map(n=>n.id)):new Set(NODES.filter(n=>n.cat===currentFilter).map(n=>n.id));
+  const nodes=NODES.filter(n=>visIds.has(n.id)).map(n=>({...n}));
+  const nodeMap=Object.fromEntries(nodes.map(n=>[n.id,n]));
+  const links=EDGES.filter(e=>visIds.has(e.s)&&visIds.has(e.t)&&(showCross||!e.cross)).map(e=>({...e,source:e.s,target:e.t}));
+
+  const sc={math:{x:W*.25,y:H*.28},lang:{x:W*.75,y:H*.28},sci:{x:W*.25,y:H*.72},soc:{x:W*.75,y:H*.72}};
+  nodes.forEach(n=>{const c=sc[n.cat]||{x:W/2,y:H/2};n.x=c.x+(Math.random()-.5)*140;n.y=c.y+(Math.random()-.5)*140});
+
+  simulation=d3.forceSimulation(nodes)
+    .force('link',d3.forceLink(links).id(d=>d.id).distance(d=>d.cross?200:80).strength(d=>d.cross?.12:.5))
+    .force('charge',d3.forceManyBody().strength(-260))
+    .force('collision',d3.forceCollide(30))
+    .force('x',d3.forceX(n=>sc[n.cat]?.x||W/2).strength(.1))
+    .force('y',d3.forceY(n=>sc[n.cat]?.y||H/2).strength(.1));
+
+  const linkSel=g.append('g').selectAll('line').data(links).enter().append('line')
+    .attr('class',d=>`link${d.cross?' cross':''}`)
+    .attr('stroke',d=>d.cross?'var(--cross)':SC[nodeMap[d.s]?.cat]||'#444')
+    .attr('marker-end',d=>`url(#arr-${d.cross?'cross':nodeMap[d.s]?.cat||'math'})`);
+
+  const nodeSel=g.append('g').selectAll('g').data(nodes).enter().append('g')
+    .attr('class',d=>`node status-${deriveStatus(d.id)} cat-${d.cat}`)
+    .call(d3.drag()
+      .on('start',(e,d)=>{if(!e.active)simulation.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y})
+      .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y})
+      .on('end',(e,d)=>{if(!e.active)simulation.alphaTarget(0);d.fx=null;d.fy=null}))
+    .on('click',(e,d)=>{e.stopPropagation();openSidebar(d)})
+    .on('mousemove',showTooltip).on('mouseleave',hideTooltip);
+
+  nodeSel.append('circle').attr('r',d=>d.critical?17:13);
+
+  // subject label inside node
+  nodeSel.append('text').attr('y',1).attr('font-size',8).attr('font-weight',700)
+    .attr('fill','rgba(255,255,255,.6)').text(d=>({math:'算',lang:'国',sci:'理',soc:'社'})[d.cat]);
+
+  // problem dots
+  nodeSel.each(function(d){
+    const ps=probsFor(d.id);if(!ps.length)return;
+    const orbit=(d.critical?17:13)+14;
+    ps.forEach((p,i)=>{
+      const angle=(2*Math.PI/ps.length)*i-Math.PI/2+(Math.random()-.5)*.5;
+      const dist=orbit+(Math.random()-.5)*7;
+      const dg=d3.select(this).append('g').attr('class','prob-dot')
+        .attr('transform',`translate(${Math.cos(angle)*dist},${Math.sin(angle)*dist})`)
+        .style('cursor','pointer')
+        .on('click',e=>{e.stopPropagation();showProbPopup(p,e.pageX,e.pageY)})
+        .on('mousemove',e=>{e.stopPropagation();showProbPopup(p,e.pageX,e.pageY)})
+        .on('mouseleave',hideProbPopup);
+      if(p.result==='correct'){
+        dg.append('circle').attr('r',4).attr('fill','var(--mastered)').attr('stroke','rgba(0,0,0,.5)').attr('stroke-width',1);
+      }else if(p.result==='wrong'){
+        const s=3.8;
+        dg.append('line').attr('x1',-s).attr('y1',-s).attr('x2',s).attr('y2',s).attr('stroke','var(--weak)').attr('stroke-width',2.5).attr('stroke-linecap','round');
+        dg.append('line').attr('x1',s).attr('y1',-s).attr('x2',-s).attr('y2',s).attr('stroke','var(--weak)').attr('stroke-width',2.5).attr('stroke-linecap','round');
+      }else{
+        dg.append('path').attr('d','M0,-5L4.5,0L0,5L-4.5,0Z').attr('fill','var(--text-dim)');
+      }
+    });
+  });
+
+  // node label with outline stroke
+  nodeSel.append('text').attr('y',d=>(d.critical?17:13)+13).attr('font-size',10).attr('font-weight',500)
+    .attr('fill','#f1f5f9').attr('paint-order','stroke')
+    .attr('stroke','#000').attr('stroke-width','3').attr('stroke-linejoin','round')
+    .text(d=>d.label.length>8?d.label.slice(0,7)+'…':d.label);
+
+  simulation.on('tick',()=>{
+    linkSel.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    nodeSel.attr('transform',d=>`translate(${d.x},${d.y})`);
+  });
+  updateStats(nodes);
+}
+
+function updateStats(nodes){
+  const mastered=nodes.filter(n=>deriveStatus(n.id)==='mastered').length;
+  const weak=nodes.filter(n=>deriveStatus(n.id)==='weak').length;
+  const plotted=nodes.filter(n=>probsFor(n.id).length>0).length;
+  const crossN=EDGES.filter(e=>e.cross).length;
+  document.getElementById('stats-bar').innerHTML=`
+    <div class="stat-chip">単元 <b>${nodes.length}</b></div>
+    <div class="stat-chip">定着 <b style="color:var(--mastered)">${mastered}</b></div>
+    <div class="stat-chip">苦手 <b style="color:var(--weak)">${weak}</b></div>
+    <div class="stat-chip">問題 <b>${problems.length}</b></div>
+    <div class="stat-chip" style="color:var(--cross)">横断 <b>${crossN}</b>本</div>`;
+}
+
+/* ══════════ FILTER ══════════ */
+function setFilter(f){
+  currentFilter=f;
+  document.querySelectorAll('.subj-chip').forEach(c=>c.classList.toggle('active',c.classList.contains(f)));
+  closeSidebar();buildGraph();
+}
+function toggleCross(){showCross=document.getElementById('cross-toggle').checked;buildGraph()}
+
+/* ══════════ SIDEBAR ══════════ */
+function openSidebar(d){
+  selectedNodeId=d.id;
+  document.getElementById('sidebar').classList.remove('collapsed');
+  const t=document.getElementById('sb-title');t.textContent=d.label;t.style.color=SC[d.cat];
+  const ps=probsFor(d.id),st=deriveStatus(d.id);
+  const stL={mastered:'定着済み',learning:'学習中',weak:'苦手',unset:'未設定'};
+  const stC={mastered:'var(--mastered)',learning:'var(--learning)',weak:'var(--weak)',unset:'var(--text-dim)'};
+  const pre=EDGES.filter(e=>e.t===d.id).map(e=>{const n=NODES.find(x=>x.id===e.s);return n?{...n,cross:e.cross}:null}).filter(Boolean);
+  const dn=EDGES.filter(e=>e.s===d.id).map(e=>{const n=NODES.find(x=>x.id===e.t);return n?{...n,cross:e.cross}:null}).filter(Boolean);
+  const ri={correct:'○',wrong:'✕',unknown:'―'};
+  const rc={correct:'pr-correct',wrong:'pr-wrong',unknown:'pr-unknown'};
+  document.getElementById('sb-body').innerHTML=`
+    <div>
+      <div class="info-row"><span>教科</span><span style="color:${SC[d.cat]}">${SL[d.cat]}</span></div>
+      <div class="info-row"><span>分野</span><span>${d.group}</span></div>
+      <div class="info-row"><span>クリティカル</span><span>${d.critical?'⚠ はい':'いいえ'}</span></div>
+      <div class="info-row"><span>習熟度</span><span style="color:${stC[st]}">${stL[st]}</span></div>
+      <div class="info-row"><span>問題数</span><span>${ps.length} 問</span></div>
+    </div>
+    ${pre.length?`<div><div class="sec-label">前提単元</div><div class="chip-list">${pre.map(n=>`<div class="chip${n.cross?' cross-edge':''}" onclick="openSidebarById('${n.id}')"><span style="color:${SC[n.cat]}">[${SL[n.cat]}]</span> ← ${n.label}${n.cross?' ✦':''}</div>`).join('')}</div></div>`:''}
+    ${dn.length?`<div><div class="sec-label">この先の単元</div><div class="chip-list">${dn.map(n=>`<div class="chip${n.cross?' cross-edge':''}" onclick="openSidebarById('${n.id}')"><span style="color:${SC[n.cat]}">[${SL[n.cat]}]</span> ${n.label} →${n.cross?' ✦':''}</div>`).join('')}</div></div>`:''}
+    <div><div class="sec-label">習熟度</div>
+      <div class="status-picker">
+        <button class="s-btn mastered${st==='mastered'?' active':''}" onclick="setNodeStatus('${d.id}','mastered')">✓ 定着</button>
+        <button class="s-btn learning${st==='learning'?' active':''}" onclick="setNodeStatus('${d.id}','learning')">◐ 学習中</button>
+        <button class="s-btn weak${st==='weak'?' active':''}" onclick="setNodeStatus('${d.id}','weak')">✗ 苦手</button>
+        <button class="s-btn unset${st==='unset'?' active':''}" onclick="setNodeStatus('${d.id}','unset')">― 未設定</button>
+      </div>
+    </div>
+    ${ps.length?`<div><div class="sec-label">登録問題 (${ps.length})</div>${ps.map(p=>`<div class="prob-item"><div class="prob-item-top"><div class="prob-text" style="${p.isQuiz?'color:var(--cross)':''}">${p.isQuiz?'📝 ':''} ${p.text.slice(0,60)}${p.text.length>60?'…':''}</div><span class="prob-badge-r ${rc[p.result]}">${ri[p.result]}</span><button class="prob-del" onclick="deleteProb(${problems.indexOf(p)})">✕</button></div><div class="prob-meta">${new Date(p.date).toLocaleDateString('ja-JP')}</div></div>`).join('')}</div>`:`<div style="font-size:11px;color:var(--text-dim)">問題未登録</div>`}
+    <div style="display:flex;gap:6px;margin-top:4px">
+      <button class="hdr-btn" style="flex:1;border-color:${SC[d.cat]};color:${SC[d.cat]}" onclick="openAddModal('${d.id}')">＋ 問題を追加</button>
+      <button class="hdr-btn" style="flex:1;border-color:var(--cross);color:var(--cross);font-weight:700" onclick="openQuiz('${d.id}')">📝 確認テスト</button>
+    </div>`;
+}
+function openSidebarById(id){const n=NODES.find(x=>x.id===id);if(n)openSidebar(n)}
+function closeSidebar(){selectedNodeId=null;document.getElementById('sidebar').classList.add('collapsed')}
+function setNodeStatus(id,s){nodeStatus[id]=s;saveStatus();buildGraph();const n=NODES.find(x=>x.id===id);if(n)openSidebar(n)}
+function deleteProb(idx){if(!confirm('削除しますか？'))return;problems.splice(idx,1);saveProbs();buildGraph();if(selectedNodeId){const n=NODES.find(x=>x.id===selectedNodeId);if(n)openSidebar(n)}}
+
+/* ══════════ ADD MODAL ══════════ */
+function openAddModal(nodeId=null){
+  presetNodeId=nodeId;
+  document.getElementById('prob-input').value='';
+  document.getElementById('ai-area').style.display='none';
+  document.getElementById('ai-tags').innerHTML='';
+  document.getElementById('ai-reason').textContent='';
+  document.getElementById('btn-save').disabled=true;
+  aiSelTag=null;setResult('wrong');
+  if(nodeId){
+    const n=NODES.find(x=>x.id===nodeId);
+    if(n){aiSelTag=nodeId;document.getElementById('ai-area').style.display='block';document.getElementById('ai-spinner').style.display='none';document.getElementById('ai-tags').innerHTML=`<div class="ai-tag selected">${n.label}（${SL[n.cat]}）</div>`;document.getElementById('ai-reason').textContent='単元指定済み';document.getElementById('btn-save').disabled=false}
+  }
+  document.getElementById('overlay').style.display='block';
+  document.getElementById('add-modal').style.display='block';
+  setTimeout(()=>document.getElementById('prob-input').focus(),100);
+}
+function setResult(r){
+  curResult=r;
+  document.querySelectorAll('.r-btn').forEach(b=>b.classList.toggle('active',b.classList.contains(r)));
+}
+function onProbInput(){
+  const text=document.getElementById('prob-input').value.trim();
+  if(presetNodeId)return;
+  clearTimeout(aiDebounce);
+  if(text.length<10){document.getElementById('ai-area').style.display='none';document.getElementById('btn-save').disabled=true;aiSelTag=null;return}
+  document.getElementById('ai-area').style.display='block';
+  document.getElementById('ai-spinner').style.display='block';
+  document.getElementById('ai-tags').innerHTML='';
+  document.getElementById('ai-reason').textContent='';
+  document.getElementById('btn-save').disabled=true;aiSelTag=null;
+  aiDebounce=setTimeout(()=>classify(text),700);
+}
+async function classify(text){
+  const cid=++aiN;
+  const nodeList=NODES.map(n=>`${n.id}: ${n.label}（${SL[n.cat]}, ${n.group}）`).join('\n');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:300,
+        system:`あなたは中学受験の問題を4教科の単元に分類する専門家です。以下の単元リストから最もあてはまるものを1〜3個選んでください。必ずJSON形式のみで返してください。他の文字は含めないでください。\n\n単元リスト:\n${nodeList}\n\n返答形式:\n{"matches":[{"id":"単元ID","label":"単元名"}],"reason":"判定理由（20字以内）"}`,
+        messages:[{role:'user',content:`次の問題を分類してください:\n\n${text}`}]})});
+    if(cid!==aiN)return;
+    const data=await res.json();
+    const raw=data.content?.[0]?.text||'{}';
+    let parsed;try{parsed=JSON.parse(raw.replace(/```json|```/g,'').trim())}catch{parsed={matches:[],reason:'判定失敗'}}
+    document.getElementById('ai-spinner').style.display='none';
+    document.getElementById('ai-reason').textContent=parsed.reason||'';
+    const tagsEl=document.getElementById('ai-tags');tagsEl.innerHTML='';
+    (parsed.matches||[]).forEach((m,i)=>{
+      const n=NODES.find(x=>x.id===m.id);if(!n)return;
+      const btn=document.createElement('div');btn.className='ai-tag'+(i===0?' selected':'');
+      btn.textContent=`${m.label}（${SL[n.cat]}）`;
+      if(i===0)aiSelTag=m.id;
+      btn.onclick=()=>{document.querySelectorAll('.ai-tag').forEach(t=>t.classList.remove('selected'));btn.classList.add('selected');aiSelTag=m.id;document.getElementById('btn-save').disabled=false};
+      tagsEl.appendChild(btn);
+    });
+    if(parsed.matches?.length)document.getElementById('btn-save').disabled=false;
+  }catch{if(cid!==aiN)return;document.getElementById('ai-spinner').style.display='none';document.getElementById('ai-reason').textContent='接続エラー'}
+}
+function saveProblem(){
+  const text=document.getElementById('prob-input').value.trim();
+  if(!aiSelTag)return alert('単元を選択してください');
+  problems.push({id:Date.now(),nodeId:aiSelTag,text:text||'(問題文なし)',result:curResult,date:new Date().toISOString()});
+  saveProbs();closeAllModals();buildGraph();
+  const n=NODES.find(x=>x.id===aiSelTag);if(n)openSidebar(n);
+}
+
+/* ══════════ POPUP / TOOLTIP ══════════ */
+function showProbPopup(p,px,py){
+  const ri={correct:'○ 正解',wrong:'✕ 不正解',unknown:'― 未採点'};
+  const rc={correct:'var(--mastered)',wrong:'var(--weak)',unknown:'var(--text-dim)'};
+  const n=NODES.find(x=>x.id===p.nodeId);
+  const el=document.getElementById('prob-popup');
+  el.innerHTML=`<div class="pp-res" style="color:${rc[p.result]}">${ri[p.result]}</div><b style="color:${SC[n?.cat]||'var(--text)'}">${n?.label||''}</b><br><span style="color:var(--text-dim);font-size:11px">${p.text.slice(0,100)}${p.text.length>100?'…':''}</span><br><span style="font-size:10px;color:var(--text-dim)">${new Date(p.date).toLocaleDateString('ja-JP')}</span>`;
+  el.style.display='block';
+  const vw=window.innerWidth,vh=window.innerHeight;
+  let x=px+16,y=py-10;
+  if(x+270>vw)x=px-285;if(y+120>vh)y=py-130;
+  el.style.left=x+'px';el.style.top=y+'px';
+}
+function hideProbPopup(){document.getElementById('prob-popup').style.display='none'}
+function showTooltip(e,d){
+  const st=deriveStatus(d.id),cnt=probsFor(d.id).length,cor=probsFor(d.id).filter(p=>p.result==='correct').length;
+  const sl={mastered:'定着済み',learning:'学習中',weak:'苦手',unset:'未設定'};
+  const t=document.getElementById('tooltip');
+  t.style.display='block';t.style.left=(e.pageX+14)+'px';t.style.top=(e.pageY-10)+'px';
+  t.innerHTML=`<b style="color:${SC[d.cat]}">[${SL[d.cat]}]</b> ${d.label}<br>${d.group} | ${sl[st]}`+(cnt?`<br>問題: ${cnt}問（正答${cor}）`:'');
+}
+function hideTooltip(){document.getElementById('tooltip').style.display='none'}
+function closeAllModals(){document.getElementById('overlay').style.display='none';document.getElementById('add-modal').style.display='none';presetNodeId=null}
+
+
+/* ══════════ CURRICULUM DATA ══════════ */
+const MATH_CURRICULUM = {
+  m01:{principle:"整数・小数の計算では「位をそろえる」ことが基本。小数のたし算・ひき算は小数点の位置をそろえ、かけ算は小数点を無視して計算してから位を合わせる。わり算は割る数を整数にしてから計算する。",questions:[{q:"3.14 × 5 の答えは？",c:["15.7","1.57","157","0.157"],a:0},{q:"12.6 ÷ 0.3 の答えは？",c:["0.42","4.2","42","420"],a:2},{q:"1.25 + 3.7 の答えは？",c:["1.62","4.95","4.85","5.05"],a:1}]},
+  m02:{principle:"分数の計算では「通分」と「約分」が核心。たし算・ひき算は分母をそろえてから分子を計算する。かけ算は分子同士・分母同士をかける。わり算は割る数の逆数をかけることと同じ。",questions:[{q:"1/3 + 1/4 の答えは？",c:["2/7","7/12","1/6","5/12"],a:1},{q:"2/3 × 3/4 の答えは？",c:["1/2","6/7","5/7","2/4"],a:0},{q:"3/4 ÷ 3/8 の答えは？",c:["9/32","1/2","2","9/8"],a:2}]},
+  m03:{principle:"四則混合計算は「かけ算・わり算を先に、たし算・ひき算を後に」が原則。かっこの中は最優先。計算の順序を間違えると全て誤りになるため、式を見たら最初に計算順序を確認する。",questions:[{q:"3 + 4 × 2 の答えは？",c:["14","11","10","24"],a:1},{q:"(5 + 3) × 4 − 6 の答えは？",c:["26","18","32","14"],a:0},{q:"24 ÷ (2 + 4) × 3 の答えは？",c:["4","36","12","3"],a:2}]},
+  m04:{principle:"約数とはある数をわり切れる整数。倍数はある数を1倍・2倍…した数。最大公約数（GCD）は共通の約数の中で最大のもの、最小公倍数（LCM）は共通の倍数の中で最小のもの。",questions:[{q:"12の約数の個数は？",c:["4個","5個","6個","3個"],a:2},{q:"4と6の最小公倍数は？",c:["12","24","2","18"],a:0},{q:"18と24の最大公約数は？",c:["4","3","6","12"],a:2}]},
+  m05:{principle:"素因数分解とは、整数を素数（2・3・5・7…）のかけ算に分解すること。小さい素数から順に割っていく「すだれ算」が基本。約数の個数を求めるときも素因数分解が有効。",questions:[{q:"12を素因数分解すると？",c:["2²×3","2×6","3×4","2³×3"],a:0},{q:"30を素因数分解すると？",c:["2×15","5×6","2×3×5","3×10"],a:2},{q:"36の約数の個数は？",c:["6個","8個","9個","12個"],a:2}]},
+  m06:{principle:"余りの計算では「割られる数 = 割る数 × 商 + 余り」が基本式。周期算はこの応用で、繰り返しパターンの中で「何番目か」を余りで求める。余りが0のときは周期の最後の数が答え。",questions:[{q:"1,2,3,4,1,2,3,4…の数列の25番目は？",c:["1","2","3","4"],a:0},{q:"100を7で割った余りは？",c:["1","2","3","4"],a:0},{q:"2,4,6,8,2,4,6,8…の数列で30番目の数は？",c:["2","4","6","8"],a:2}]},
+  m07:{principle:"割合とは「比べる量 ÷ もとにする量」。くもわの三角形：比べる量 = もとにする量 × 割合。割合問題では必ず「何をもとにしているか」を確認することが最重要。",questions:[{q:"80人の25%は何人？",c:["20人","25人","16人","32人"],a:0},{q:"60円は150円の何%？",c:["25%","40%","60%","90%"],a:1},{q:"定価の80%が1200円のとき定価は？",c:["960円","1500円","1400円","1600円"],a:1}]},
+  m08:{principle:"百分率（%）は割合に100をかけた値、歩合は1割=0.1=10%。「3割引き」なら0.7倍、「2割5分増し」なら1.25倍。売買では「定価」「売価」「原価」の関係をつかむ。",questions:[{q:"3割5分を百分率にすると？",c:["3.5%","35%","350%","0.35%"],a:1},{q:"定価2000円を2割引きで売ると？",c:["1400円","1600円","1800円","400円"],a:1},{q:"1割5分引きは何倍？",c:["0.75倍","0.85倍","1.15倍","0.15倍"],a:1}]},
+  m09:{principle:"比は「2:3」のように関係を表す。比の性質：両方に同じ数をかけても割っても比は等しい。連比（三つ以上の量の比）は中間の量をそろえて作る。",questions:[{q:"A:B=3:4でAが24のときBは？",c:["18","28","32","16"],a:2},{q:"2:3を作る比として正しいのは？",c:["4:9","6:9","10:12","8:12"],a:1},{q:"A:B=2:3、B:C=4:5のときA:Cは？",c:["8:15","2:5","10:15","6:10"],a:0}]},
+  m10:{principle:"比の応用では「比の差・和から全体を求める」が頻出。線分図を書くと構造が見えやすい。比の値（比の前項÷後項）を使うと速く解ける問題も多い。",questions:[{q:"A:B=3:5で差が14のときAの量は？",c:["21","35","42","28"],a:0},{q:"A:Bの合計が40で比が3:5のときAは？",c:["15","25","24","16"],a:0},{q:"比が2:3:5の3量の合計が100のとき最大の量は？",c:["30","50","20","40"],a:1}]},
+  m11:{principle:"売買損益では「原価→定価→売価」の流れを整理する。利益 = 売価 − 原価。割引・値上げは定価に対する割合。原価の何%増しが定価か、定価の何%引きが売価かを別々に考える。",questions:[{q:"原価500円に40%増して定価をつけると？",c:["700円","600円","540円","900円"],a:0},{q:"定価800円の25%引きの売価は？",c:["200円","600円","575円","650円"],a:1},{q:"原価600円の商品を900円で売ると利益率は？",c:["33%","50%","40%","150%"],a:1}]},
+  m12:{principle:"速さの基本公式：速さ = 距離 ÷ 時間（みはじの三角形）。単位変換に注意（時速→分速は÷60、km→mは×1000）。速さ・時間・距離のうち2つがわかれば残り1つが求められる。",questions:[{q:"時速60kmで2時間30分走ると何km？",c:["120km","150km","180km","90km"],a:1},{q:"120kmを3時間で走るときの時速は？",c:["30km","40km","50km","360km"],a:1},{q:"分速80mを時速に直すと？",c:["4.8km","48km","8km","480m"],a:0}]},
+  m13:{principle:"旅人算は2人が動く問題。「追いかける：速さの差で距離を縮める」「向かい合う：速さの和で距離を縮める」が基本。出発時刻が違う場合は先に出た人の進んだ距離を先に計算する。",questions:[{q:"分速60mと40mで反対方向に歩くと何分後に500m離れるか？",c:["4分","5分","6分","8分"],a:1},{q:"分速80mと60mで2km離れた地点から向かい合って歩くと何分後に出会うか？",c:["10分","12.5分","15分","20分"],a:1},{q:"分速70mのAより10分先に出発。分速90mのBが追いかけると何分後に追いつくか？",c:["30分","35分","40分","45分"],a:1}]},
+  m14:{principle:"通過算：列車が通過するとき進む距離 = 列車の長さ + 通過するものの長さ。流水算：下り速度 = 静水速度 + 流速、上り速度 = 静水速度 − 流速。",questions:[{q:"長さ150mの列車が200mのホームを通過するのに14秒。速さは秒速何m？",c:["25m","30m","35m","20m"],a:0},{q:"静水時速12km・流速時速3kmの船の下り速度は？",c:["9km","12km","15km","18km"],a:2},{q:"長さ100mと150mの列車がすれ違うのに5秒。2列車の速さの和は秒速何m？",c:["40m","50m","60m","30m"],a:1}]},
+  m15:{principle:"時計算：長針は1分に6度、短針は1分に0.5度進む。2針の角度差や重なる時刻を求める問題が多い。0時0分を基準に「何分後」を変数として考える。",questions:[{q:"3時ちょうど、長針と短針のつくる角度は？",c:["60度","90度","120度","150度"],a:1},{q:"12時から長針と短針が重なるのは何分後？（小数第2位まで）",c:["54分","60分","65.5分","66分"],a:2},{q:"長針が短針より30度多く進むのに何分かかるか？（小数第2位まで）",c:["5分","5.45分","6分","4.9分"],a:1}]},
+  m16:{principle:"平面図形では「三角形の内角の和は180度、n角形の内角の和は180×(n−2)度」が基本。平行線と角度（同位角・錯角は等しい、対頂角は等しい）の関係も頻出。",questions:[{q:"五角形の内角の和は？",c:["360度","450度","540度","720度"],a:2},{q:"三角形の2つの角が45度と70度のとき残りの角は？",c:["55度","65度","70度","75度"],a:1},{q:"平行線と錯角の関係は？",c:["等しい","補角になる","余角になる","2倍になる"],a:0}]},
+  m17:{principle:"面積の公式：三角形=底辺×高さ÷2、平行四辺形=底辺×高さ、台形=(上底+下底)×高さ÷2。等積変形（底辺・高さが同じ→面積が等しい）を使うと複雑な図形も解ける。",questions:[{q:"底辺8cm・高さ5cmの三角形の面積は？",c:["20cm²","40cm²","13cm²","80cm²"],a:0},{q:"上底4cm・下底6cm・高さ5cmの台形の面積は？",c:["25cm²","30cm²","50cm²","35cm²"],a:0},{q:"1辺10cmの正方形と面積が等しい長方形の縦が4cmのとき横は？",c:["20cm","25cm","40cm","16cm"],a:1}]},
+  m18:{principle:"相似な図形は形が同じで大きさが違う。相似比n:mのとき面積比はn²:m²、体積比はn³:m³。三角形の相似条件：3辺の比が等しい／2辺の比と夾角が等しい／2角が等しい。",questions:[{q:"相似比2:3の2つの三角形の面積比は？",c:["2:3","4:6","4:9","8:27"],a:2},{q:"相似比1:4の2つの立体の体積比は？",c:["1:4","1:8","1:16","1:64"],a:3},{q:"面積9cm²と16cm²の2つの相似な三角形の相似比は？",c:["9:16","3:4","81:256","√3:√4"],a:1}]},
+  m19:{principle:"円の面積 = 半径×半径×π（π≒3.14）、円周 = 直径×π。おうぎ形の面積 = 円の面積×(中心角÷360)、弧の長さ = 円周×(中心角÷360)。",questions:[{q:"半径5cmの円の面積は？（π=3.14）",c:["31.4cm²","78.5cm²","15.7cm²","62.8cm²"],a:1},{q:"直径8cmの円の円周は？（π=3.14）",c:["25.12cm","50.24cm","12.56cm","100.48cm"],a:0},{q:"半径6cm・中心角90度のおうぎ形の面積は？（π=3.14）",c:["9.42cm²","18.84cm²","28.26cm²","56.52cm²"],a:2}]},
+  m20:{principle:"直方体の体積=縦×横×高さが基本。複雑な立体は分割して考える。見取り図・展開図の関係を理解し、頂点・辺・面の数（オイラーの公式：頂点−辺+面=2）も押さえる。",questions:[{q:"縦3cm・横4cm・高さ5cmの直方体の体積は？",c:["47cm³","60cm³","120cm³","24cm³"],a:1},{q:"1辺4cmの立方体の表面積は？",c:["64cm²","96cm²","48cm²","16cm²"],a:1},{q:"底面の半径3cm・高さ4cmの円柱の体積は？（π=3.14）",c:["37.68cm³","113.04cm³","75.36cm³","226.08cm³"],a:1}]},
+  m21:{principle:"鶴亀算は「全部同じだったら…」と仮定して差から求める。全部鶴なら足は2本×匹数、実際との差を（4−2）で割ると亀の数がわかる。表やてんびん図で整理するとわかりやすい。",questions:[{q:"鶴と亀合わせて8匹、足の合計22本。亀は何匹？",c:["2匹","3匹","4匹","5匹"],a:1},{q:"1本50円と80円の鉛筆を合計12本買い780円。50円の鉛筆は何本？",c:["4本","6本","8本","10本"],a:1},{q:"大人200円・子ども100円、合計20人で2600円。大人は何人？",c:["4人","6人","8人","10人"],a:1}]},
+  m22:{principle:"差集め算は「余る・足りない」から求める問題。「a個配るとb個余り、c個配るとd個足りない」→人数=(b+d)÷(c−a)。過不足算とも呼ばれ、整理して差を求めることが核心。",questions:[{q:"4個ずつ配ると3個余り、5個ずつ配ると2個足りない。子どもの人数は？",c:["3人","4人","5人","6人"],a:2},{q:"長いすに5人ずつ座ると4人余り、6人ずつ座ると2脚足りない。長いすの数は？",c:["8脚","10脚","12脚","14脚"],a:2},{q:"上の問題で子どもの総人数は？",c:["52人","60人","64人","74人"],a:2}]},
+  m23:{principle:"仕事算は「全体の仕事量を1とおく」のが基本。1日にできる仕事量の比を求め、合わせて仕事をする場合は仕事量を足す。単位時間あたりの仕事量に着目することが核心。",questions:[{q:"AとBが一緒にやると6日で終わる。Aだけだと10日かかる。Bだけだと何日？",c:["12日","15日","16日","20日"],a:1},{q:"AのポンプだとタンクがC12分、Bは18分で満水になる。2つ同時に使うと何分？",c:["6分","7.2分","9分","15分"],a:1},{q:"3人で12日かかる仕事を4人でやると何日？",c:["9日","8日","10日","16日"],a:0}]},
+  m24:{principle:"濃度 = 食塩の重さ ÷ 食塩水の重さ × 100（%）。食塩水を混ぜる問題は「食塩の量の和÷食塩水の量の和」で求める。てんびん算を使うと混合比を素早く求められる。",questions:[{q:"食塩20gを水180gに溶かした食塩水の濃度は？",c:["10%","11%","20%","18%"],a:0},{q:"5%の食塩水200gと10%の食塩水300gを混ぜると何%？",c:["7%","7.5%","8%","8.5%"],a:2},{q:"8%の食塩水500gから水を何g蒸発させると10%になるか？",c:["80g","100g","120g","200g"],a:1}]},
+  m25:{principle:"ニュートン算は「仕事量が時間とともに変化する」問題。「最初にある量 + 増える量×時間 = 処理量×時間」の方程式を立てる。牧草問題が代表例：草は増え続け、牛は食べ続ける。",questions:[{q:"牛3頭で10日、4頭で6日でなくなる牧草地。1日に増える草の量は最初の量の何分の1？",c:["1/5","1/10","1/15","1/20"],a:0},{q:"窓口1つで40分、2つで15分で行列がなくなる。1分5人並ぶとき最初の人数は？",c:["50人","60人","100人","75人"],a:0},{q:"増加量と処理量の差が大きいほど、なくなるまでの時間はどうなるか？",c:["長くなる","短くなる","変わらない","0になる"],a:1}]},
+  m26:{principle:"植木算：直線上にn本植えると間隔はn−1個。円形ではn本でn個の間隔。等差数列の和 = (初項+末項)×項数÷2。数列の規則を見つけることが最初のステップ。",questions:[{q:"100mの道の両端を含めて10m間隔で木を植えると何本？",c:["9本","10本","11本","12本"],a:2},{q:"円の周囲800mに50m間隔で木を植えると何本？",c:["15本","16本","17本","18本"],a:1},{q:"1+3+5+7+…+19（奇数の和）の合計は？",c:["81","100","110","90"],a:1}]},
+  m27:{principle:"周期・規則性では、まず「何個でひとまとまりか（周期）」を見つける。余りの計算で「n番目は周期のいくつ目か」を求める。数列・図形の繰り返しパターン・カレンダー問題などに応用する。",questions:[{q:"△○□△○□…の繰り返しで100番目の図形は？",c:["△","○","□","△○"],a:0},{q:"1,1,2,1,1,2…の繰り返しで1から50番目までの和は？",c:["55","60","65","70"],a:1},{q:"ある年の1月1日が火曜日のとき4月1日は何曜日？（平年）",c:["月曜日","火曜日","水曜日","木曜日"],a:0}]},
+  m28:{principle:"場合の数：「順列」は順序あり（nPr = n×(n-1)×…）、「組み合わせ」は順序なし（nCr = nPr÷r!）。樹形図で整理し、「和の法則（または）」「積の法則（かつ）」を使う。",questions:[{q:"A・B・C・Dの4人から2人選んで1列に並べる並べ方は？",c:["6通り","8通り","12通り","24通り"],a:2},{q:"5人から3人選ぶ組み合わせは？",c:["10通り","20通り","60通り","15通り"],a:0},{q:"サイコロを2回振って和が7になる組み合わせは？",c:["4通り","5通り","6通り","7通り"],a:2}]},
+  m29:{principle:"統計・グラフでは「平均 = 合計 ÷ 個数」が基本。グラフの読み取りでは目盛りの単位に注意。中央値（大きさ順に並べた真ん中の値）・最頻値（最も多く出る値）も押さえる。",questions:[{q:"5つのテストの点数70・80・60・90・75の平均点は？",c:["73点","75点","76点","80点"],a:1},{q:"データ 3,7,2,8,5,7,4 の中央値は？",c:["5","7","4","6"],a:0},{q:"2019年が50・2020年が80のとき増加率は？",c:["30%","60%","160%","130%"],a:1}]},
+};
+
+// Quiz state
+let qState = { nodeId:null, questions:[], idx:0, score:0, answered:false };
+
+function openQuiz(nodeId) {
+  const nd = NODES.find(x=>x.id===nodeId);
+  if(!nd) return;
+  const cur = MATH_CURRICULUM[nodeId];
+  let qs = [];
+  if(cur) {
+    qs = cur.questions;
+  }
+  // For non-math or missing: generate via AI (show loading)
+  qState = { nodeId, questions: qs, idx:0, score:0, answered:false, aiMode:!cur, principle: cur?.principle||null };
+  document.getElementById('qm-subj').textContent = '[' + SL[nd.cat] + '] ' + nd.group;
+  document.getElementById('qm-subj').style.color = SC[nd.cat];
+  document.getElementById('qm-title').textContent = nd.label;
+  document.getElementById('qm-principle').textContent = cur ? cur.principle : '原理原則を読み込み中…';
+  document.getElementById('overlay').style.display='block';
+  document.getElementById('quiz-modal').style.display='block';
+  if(!cur) {
+    generateQuizAI(nd);
+  } else {
+    renderQuizQuestion();
+  }
+}
+
+async function generateQuizAI(nd) {
+  document.getElementById('qm-q').textContent = 'AIが問題を生成中…';
+  document.getElementById('qm-choices').innerHTML = '';
+  document.getElementById('qm-feedback').style.display='none';
+  document.getElementById('qm-next-btn').style.display='none';
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,
+        system:`あなたは中学受験の専門家です。指定された単元について、原理原則の説明（100字以内）と確認問題3問（4択）を作成してください。必ずJSON形式のみで返してください。\n\n{"principle":"原理原則の説明","questions":[{"q":"問題文","c":["選択肢1","選択肢2","選択肢3","選択肢4"],"a":正解のインデックス(0-3)}]}`,
+        messages:[{role:'user',content:`単元：${nd.label}（${SL[nd.cat]}・${nd.group}）\n6年夏休みまでに習得すべき基礎力を確認する問題を3問作成してください。`}]})});
+    const data = await res.json();
+    const raw = data.content?.[0]?.text||'{}';
+    let parsed; try{parsed=JSON.parse(raw.replace(/```json|```/g,'').trim())}catch{parsed=null}
+    if(parsed?.questions?.length) {
+      qState.questions = parsed.questions;
+      qState.principle = parsed.principle;
+      document.getElementById('qm-principle').textContent = parsed.principle;
+      renderQuizQuestion();
+    } else {
+      document.getElementById('qm-q').textContent = '問題の生成に失敗しました。再度お試しください。';
+    }
+  } catch(e) {
+    document.getElementById('qm-q').textContent = '接続エラー。ネットワークを確認してください。';
+  }
+}
+
+function renderQuizQuestion() {
+  const {questions, idx, score} = qState;
+  const total = questions.length;
+  qState.answered = false;
+  // progress
+  document.getElementById('qm-progress').textContent = `問題 ${idx+1} / ${total}`;
+  document.getElementById('qm-bar').style.width = ((idx+1)/total*100)+'%';
+  document.getElementById('qm-score-badge').textContent = `${score} / ${idx}`;
+  document.getElementById('qm-feedback').style.display='none';
+  document.getElementById('qm-next-btn').style.display='none';
+  document.getElementById('qm-finish-btn').style.display='none';
+  document.getElementById('qm-result-summary').textContent='';
+  const q = questions[idx];
+  document.getElementById('qm-q').textContent = q.q;
+  const choicesEl = document.getElementById('qm-choices');
+  choicesEl.innerHTML = '';
+  q.c.forEach((ch,i)=>{
+    const btn = document.createElement('button');
+    btn.className = 'qm-choice';
+    btn.textContent = ['①','②','③','④'][i] + ' ' + ch;
+    btn.onclick = () => answerQuiz(i);
+    choicesEl.appendChild(btn);
+  });
+}
+
+function answerQuiz(chosen) {
+  if(qState.answered) return;
+  qState.answered = true;
+  const q = qState.questions[qState.idx];
+  const correct = chosen === q.a;
+  if(correct) qState.score++;
+  // color choices
+  const btns = document.querySelectorAll('.qm-choice');
+  btns.forEach((b,i)=>{
+    b.disabled = true;
+    if(i===q.a) b.classList.add('correct');
+    else if(i===chosen && !correct) b.classList.add('wrong');
+  });
+  // feedback
+  const fb = document.getElementById('qm-feedback');
+  fb.style.display='block';
+  if(correct) {
+    fb.style.background='rgba(34,211,160,.08)';fb.style.border='1px solid var(--mastered)';fb.style.color='var(--mastered)';
+    fb.textContent='✓ 正解！';
+  } else {
+    fb.style.background='rgba(244,63,94,.08)';fb.style.border='1px solid var(--weak)';fb.style.color='#f1f5f9';
+    fb.innerHTML='✗ 不正解。正解は <b style="color:var(--mastered)">'+['①','②','③','④'][q.a]+' '+q.c[q.a]+'</b>';
+  }
+  document.getElementById('qm-score-badge').textContent = `${qState.score} / ${qState.idx+1}`;
+  // next or finish
+  if(qState.idx < qState.questions.length-1) {
+    document.getElementById('qm-next-btn').style.display='block';
+  } else {
+    // done — save result & show summary
+    saveQuizResult();
+    const pct = Math.round(qState.score/qState.questions.length*100);
+    document.getElementById('qm-result-summary').innerHTML = `<span style="font-size:14px;font-weight:700;color:${pct>=70?'var(--mastered)':pct>=40?'var(--learning)':'var(--weak)'}">${pct}%</span> <span style="color:#64748b">（${qState.score}/${qState.questions.length}正解）</span>`;
+    document.getElementById('qm-finish-btn').style.display='block';
+  }
+}
+
+function quizNext() {
+  qState.idx++;
+  renderQuizQuestion();
+}
+
+function saveQuizResult() {
+  const {nodeId, questions, score} = qState;
+  const pct = score / questions.length;
+  // save as problems in existing system
+  questions.forEach((q,i)=>{
+    const result = i < qState.idx ? (qState.score > 0 ? 'correct':'wrong') : 'unknown';
+    // more accurately save per-question — but we use aggregate for simplicity
+  });
+  // save aggregate as a special quiz entry
+  problems.push({
+    id: Date.now(),
+    nodeId,
+    text: `確認テスト（${questions.length}問・${Math.round(pct*100)}%正解）`,
+    result: pct >= 0.7 ? 'correct' : pct >= 0.4 ? 'unknown' : 'wrong',
+    date: new Date().toISOString(),
+    isQuiz: true,
+    quizScore: score,
+    quizTotal: questions.length,
+  });
+  saveProbs();
+  buildGraph(); // refresh node color
+}
+
+function closeQuiz() {
+  document.getElementById('quiz-modal').style.display='none';
+  document.getElementById('overlay').style.display='none';
+  // reopen sidebar if node was selected
+  if(qState.nodeId) { const n=NODES.find(x=>x.id===qState.nodeId); if(n) openSidebar(n); }
+}
+
+
+/* ══════════ INIT ══════════ */
+buildGraph();
+window.addEventListener('resize',buildGraph);
+</script>
+
+<!-- QUIZ MODAL -->
+<div id="quiz-modal" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:min(560px,94vw);background:#111;border:1px solid #2a2a2a;border-radius:16px;padding:24px;z-index:30;display:none;box-shadow:0 24px 80px rgba(0,0,0,.9);max-height:90vh;overflow-y:auto">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+    <div>
+      <div id="qm-subj" style="font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:2px"></div>
+      <div id="qm-title" style="font-size:15px;font-weight:700;color:#f1f5f9"></div>
+    </div>
+    <button onclick="closeQuiz()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;line-height:1">✕</button>
+  </div>
+  <!-- principle -->
+  <div id="qm-principle" style="background:#000;border:1px solid #2a2a2a;border-left:3px solid var(--cross);border-radius:10px;padding:14px 16px;font-size:12px;line-height:1.8;color:#94a3b8;margin-bottom:20px"></div>
+  <!-- progress -->
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
+    <div style="font-size:11px;color:#64748b" id="qm-progress">問題 1 / 3</div>
+    <div style="flex:1;height:4px;background:#1a1a1a;border-radius:2px;overflow:hidden">
+      <div id="qm-bar" style="height:100%;background:var(--cross);border-radius:2px;transition:width .3s;width:33%"></div>
+    </div>
+    <div id="qm-score-badge" style="font-size:11px;color:#64748b">0 / 0</div>
+  </div>
+  <!-- question -->
+  <div id="qm-q" style="font-size:14px;font-weight:600;color:#f1f5f9;line-height:1.7;margin-bottom:16px;min-height:48px"></div>
+  <!-- choices -->
+  <div id="qm-choices" style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px"></div>
+  <!-- feedback -->
+  <div id="qm-feedback" style="display:none;border-radius:10px;padding:12px 16px;font-size:12px;line-height:1.7;margin-bottom:16px"></div>
+  <!-- nav -->
+  <div style="display:flex;justify-content:space-between;align-items:center">
+    <div id="qm-result-summary" style="font-size:12px;color:#64748b"></div>
+    <button id="qm-next-btn" onclick="quizNext()" style="background:var(--cross);border:none;color:#000;border-radius:10px;padding:9px 22px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;display:none">次の問題 →</button>
+    <button id="qm-finish-btn" onclick="closeQuiz()" style="background:#22d3a0;border:none;color:#000;border-radius:10px;padding:9px 22px;font-size:13px;font-weight:700;font-family:inherit;cursor:pointer;display:none">完了 ✓</button>
+  </div>
+</div>
+
+</body>
+</html>
