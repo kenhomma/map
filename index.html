@@ -385,16 +385,13 @@ const BASE_STROKE = {math:'#38bdf8',lang:'#a78bfa',sci:'#34d399',soc:'#fb923c'};
 // ノード半径: ベース + 問題数ボーナス + z奥行きスケール
 function nodeRadius(d) {
   const base = d.critical ? 17 : 13;
-  const probCount = problems.filter(p=>p.nodeId===d.id).length;
-  const sizeBonus = Math.min(10, probCount * 1.2); // 最大+10px
-  const zScale = d.z !== undefined ? 1 + d.z / 800 : 1; // 手前=大きく 奥=小さく
-  return Math.max(7, (base + sizeBonus) * zScale);
+  const sizeBonus = Math.min(10, (d.probCount||0) * 1.2);
+  return Math.max(7, base + sizeBonus);
 }
 
 // z奥行きから不透明度・輝度スケール
 function zOpacity(d) {
-  if(d.z === undefined) return 1;
-  return 0.55 + 0.45 * (1 + d.z/300).toFixed(2); // 奥=暗く 手前=明るく
+  return Math.min(1, Math.max(0.25, 0.6 + (d.z||0)/400));
 }
 
 function masteryFill(d) {
@@ -492,17 +489,6 @@ function buildGraph(){
   svgEl.call(d3.zoom().scaleExtent([.1,5]).on('zoom',e=>{
     g.attr('transform',e.transform);
     CURRENT_ZOOM=e.transform;
-    // ズームレベルに応じてz奥行き感を強調
-    const zoomK = e.transform.k;
-    const depthFactor = Math.min(2.5, zoomK * 0.8);
-    nodeSel && nodeSel.attr('transform',d=>{
-      const zScale = 1 + (d.z||0)/700 * depthFactor;
-      return `translate(${d.x},${d.y}) scale(${Math.max(0.3,zScale).toFixed(3)})`;
-    });
-    nodeSel && nodeSel.select('circle').attr('opacity',d=>{
-      const zOp = 0.4 + 0.6*(1+(d.z||0)/300*depthFactor);
-      return Math.min(1,Math.max(0.15,zOp));
-    });
   }));
 
   const visIds=currentFilter==='all'?new Set(NODES.map(n=>n.id)):new Set(NODES.filter(n=>n.cat===currentFilter).map(n=>n.id));
@@ -513,11 +499,15 @@ function buildGraph(){
   const sc={math:{x:W*.25,y:H*.28},lang:{x:W*.75,y:H*.28},sci:{x:W*.25,y:H*.72},soc:{x:W*.75,y:H*.72}};
   // z座標: 教科ごとに奥行きレイヤー + ランダムオフセット
   const zBase={math:-120,lang:120,sci:80,soc:-80};
+  // probCountをキャッシュ（毎tick filter不要に）
+  const probCountMap={};
+  problems.forEach(p=>{probCountMap[p.nodeId]=(probCountMap[p.nodeId]||0)+1});
   nodes.forEach(n=>{
     const c=sc[n.cat]||{x:W/2,y:H/2};
     n.x=c.x+(Math.random()-.5)*140;
     n.y=c.y+(Math.random()-.5)*140;
     n.z=zBase[n.cat]+(Math.random()-.5)*160;
+    n.probCount=probCountMap[n.id]||0;
   });
 
   SIM_NODES = nodes; // グローバル参照（x/y更新済み）
@@ -553,7 +543,10 @@ function buildGraph(){
   const linkSel=g.append('g').selectAll('line').data(links).enter().append('line')
     .attr('class',d=>`link${d.cross?' cross':''}`)
     .attr('stroke',d=>d.cross?'var(--cross)':SC[nodeMap[d.s]?.cat]||'#444')
-    .attr('stroke-opacity', d=>d.cross?0.12:0.18)
+    .attr('stroke-opacity', d=>{
+      const z=(nodeMap[d.s]?.z||0);
+      return d.cross ? 0.08+0.05*(1+z/400) : 0.12+0.08*(1+z/400);
+    })
     .attr('stroke-width', 1)
     .attr('marker-end',d=>`url(#arr-${d.cross?'cross':nodeMap[d.s]?.cat||'math'})`);
 
@@ -609,23 +602,11 @@ function buildGraph(){
     .text(d=>d.label.length>8?d.label.slice(0,7)+'…':d.label);
 
   simulation.on('tick',()=>{
-    // リンク: z平均で奥行きopacity
+    // tick: 座標更新のみ（最軽量）
     linkSel
       .attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
-      .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y)
-      .attr('stroke-opacity',d=>{
-        const avgZ=((d.source.z||0)+(d.target.z||0))/2;
-        return d.cross ? 0.08+0.07*(1+avgZ/300) : 0.1+0.12*(1+avgZ/300);
-      });
-    // ノード: z奥行きでscale + sort（手前を上に）
-    nodeSel
-      .sort((a,b)=>(a.z||0)-(b.z||0)) // 奥→手前の順に描画
-      .attr('transform',d=>{
-        const zScale = 1 + (d.z||0)/700;
-        return `translate(${d.x},${d.y}) scale(${zScale.toFixed(3)})`;
-      });
-    // circleのopacityをz更新に合わせる
-    nodeSel.select('circle').attr('opacity',d=>zOpacity(d));
+      .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    nodeSel.attr('transform',d=>`translate(${d.x},${d.y}) scale(${(1+(d.z||0)/700).toFixed(2)})`);
   });
   updateStats(nodes);
 }
@@ -656,15 +637,16 @@ function focusNode(d) {
     .call(d3.zoom().transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
   // pulse ring
   const g = svgEl.select('g');
-  const pulse = g.append('circle')
+  CURRENT_G.append('circle')
     .attr('cx', d.x).attr('cy', d.y)
     .attr('r', d.critical?17:13)
     .attr('fill','none')
     .attr('stroke','var(--cross)')
     .attr('stroke-width', 2)
-    .attr('opacity', 0.9);
-  pulse.transition().duration(700).ease(d3.easeExpOut)
-    .attr('r', d.critical?50:40)
+    .attr('opacity', 0.9)
+    .attr('pointer-events','none')
+    .transition().duration(600).ease(d3.easeExpOut)
+    .attr('r', d.critical?48:36)
     .attr('opacity', 0)
     .remove();
 }
