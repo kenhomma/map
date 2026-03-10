@@ -42,7 +42,24 @@ svg#graph{width:100%;height:100%;display:block;background:#000}
 .node circle{cursor:pointer;stroke-width:2;transition:all .15s}
 .node:hover circle{stroke-width:3.5;filter:brightness(1.4)}
 .node text{pointer-events:none;user-select:none;text-anchor:middle;dominant-baseline:middle}
-.status-mastered circle{filter:drop-shadow(0 0 6px var(--mastered))}
+.status-mastered circle{filter:drop-shadow(0 0 8px var(--mastered))}
+.node-unset circle{filter:grayscale(1) brightness(0.35)}
+.node-unset text{opacity:.4}
+@keyframes nodeUnlock{
+  0%  {r:13;opacity:.6}
+  40% {r:32;opacity:.9}
+  70% {r:22;opacity:1}
+  100%{r:13;opacity:1}
+}
+@keyframes rippleOut{
+  0%  {r:14;stroke-opacity:.9;stroke-width:3}
+  100%{r:55;stroke-opacity:0;stroke-width:1}
+}
+@keyframes chainGlow{
+  0%  {stroke-opacity:.15}
+  50% {stroke-opacity:.9}
+  100%{stroke-opacity:.15}
+}
 .prob-dot{transition:opacity .1s,transform .15s;transform-origin:center}
 .prob-dot:hover{opacity:.7;transform:scale(1.7)}
 #sidebar{width:280px;min-width:220px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .3s}
@@ -350,26 +367,21 @@ const BASE_STROKE = {math:'#38bdf8',lang:'#a78bfa',sci:'#34d399',soc:'#fb923c'};
 // Mastery levels → progressively more saturated/bright fill
 function masteryFill(d) {
   const st = deriveStatus(d.id);
-  const pct = masteryPct(d.id); // 0–1
-  const cat = d.cat;
-  // interpolate from dim base → vivid saturated
+  if(st==='unset') return '#1a1a1a'; // full gray until touched
   const fills = {
-    math: ['#0f2a38','#1a4860','#1e5a78','#1a6a90'],
-    lang: ['#1e1030','#2d1a50','#3d2070','#4a2890'],
-    sci:  ['#0a2018','#123828','#1a5038','#1e6845'],
-    soc:  ['#251408','#3a2010','#502c14','#6a3a18'],
+    math: {weak:'#1a3a50',learning:'#1e5a78',mastered:'#1a7aaa'},
+    lang: {weak:'#2d1a50',learning:'#3d2070',mastered:'#5a30a0'},
+    sci:  {weak:'#123828',learning:'#1a5038',mastered:'#1e7848'},
+    soc:  {weak:'#3a2010',learning:'#502c14',mastered:'#7a4018'},
   };
-  const idx = st==='mastered'?3:st==='learning'?2:st==='weak'?1:0;
-  return fills[cat]?.[idx] || BASE_FILL[cat];
+  return fills[d.cat]?.[st] || '#1a1a1a';
 }
 function masteryStroke(d) {
   const st = deriveStatus(d.id);
+  if(st==='unset') return '#333';
   if(st==='weak') return 'var(--weak)';
   if(st==='mastered') return 'var(--mastered)';
-  if(st==='learning') {
-    // slightly brighter version of subject color
-    return {math:'#60d0ff',lang:'#c4a8ff',sci:'#5ef5c0',soc:'#ffb060'}[d.cat] || BASE_STROKE[d.cat];
-  }
+  if(st==='learning') return {math:'#60d0ff',lang:'#c4a8ff',sci:'#5ef5c0',soc:'#ffb060'}[d.cat] || BASE_STROKE[d.cat];
   return BASE_STROKE[d.cat];
 }
 function masteryPct(id) {
@@ -437,7 +449,7 @@ function buildGraph(){
       .on('start',(e,d)=>{if(!e.active)simulation.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y})
       .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y})
       .on('end',(e,d)=>{if(!e.active)simulation.alphaTarget(0);d.fx=null;d.fy=null}))
-    .on('click',(e,d)=>{e.stopPropagation();focusNode(d);openSidebar(d)})
+    .on('click',(e,d)=>{e.stopPropagation();focusNode(d);if(deriveStatus(d.id)==='unset')previewUnlock(d);openSidebar(d)})
     .on('mousemove',showTooltip).on('mouseleave',hideTooltip);
 
   nodeSel.append('circle').attr('r',d=>d.critical?17:13)
@@ -822,12 +834,7 @@ function quizNext() {
 function saveQuizResult() {
   const {nodeId, questions, score} = qState;
   const pct = score / questions.length;
-  // save as problems in existing system
-  questions.forEach((q,i)=>{
-    const result = i < qState.idx ? (qState.score > 0 ? 'correct':'wrong') : 'unknown';
-    // more accurately save per-question — but we use aggregate for simplicity
-  });
-  // save aggregate as a special quiz entry
+  const prevStatus = deriveStatus(nodeId);
   problems.push({
     id: Date.now(),
     nodeId,
@@ -839,7 +846,60 @@ function saveQuizResult() {
     quizTotal: questions.length,
   });
   saveProbs();
-  buildGraph(); // refresh node color
+  buildGraph();
+  const newStatus = deriveStatus(nodeId);
+  // fire unlock animation if status improved
+  if(prevStatus === 'unset' || (prevStatus==='weak' && newStatus!=='weak') || newStatus==='mastered') {
+    setTimeout(()=>unlockAnimate(nodeId, newStatus), 400);
+  }
+}
+
+function unlockAnimate(nodeId, status) {
+  const nd = NODES.find(x=>x.id===nodeId);
+  if(!nd) return;
+  const g = d3.select('#graph').select('g');
+  const col = status==='mastered'?'var(--mastered)':status==='weak'?'var(--weak)':'var(--learning)';
+  // burst ripple rings x3
+  [0,150,300].forEach(delay=>{
+    setTimeout(()=>{
+      const r = g.append('circle')
+        .attr('cx',nd.x).attr('cy',nd.y)
+        .attr('r',nd.critical?17:13)
+        .attr('fill','none')
+        .attr('stroke',col)
+        .attr('stroke-width',2.5)
+        .attr('pointer-events','none');
+      r.transition().duration(900).ease(d3.easeExpOut)
+        .attr('r',60).attr('stroke-opacity',0).attr('stroke-width',.5).remove();
+    }, delay);
+  });
+  // chain: light up downstream nodes sequentially
+  const downstream = LINKS
+    .filter(l=>(l.source.id||l.source)===nodeId)
+    .map(l=>l.target.id||l.target);
+  downstream.forEach((tid,i)=>{
+    setTimeout(()=>chainPulse(tid), 500 + i*220);
+  });
+}
+
+function chainPulse(nodeId) {
+  const nd = NODES.find(x=>x.id===nodeId);
+  if(!nd) return;
+  const g = d3.select('#graph').select('g');
+  const ndEl = d3.selectAll('.node').filter(d=>d.id===nodeId);
+  // flash the node
+  ndEl.select('circle')
+    .transition().duration(200).attr('fill','#ffffff').attr('stroke-opacity',1)
+    .transition().duration(600).attr('fill', masteryFill(nd)).attr('stroke-opacity',.8);
+  // small ripple
+  const r = g.append('circle')
+    .attr('cx',nd.x).attr('cy',nd.y)
+    .attr('r',nd.critical?17:13)
+    .attr('fill','none').attr('stroke','#fff')
+    .attr('stroke-width',1.5).attr('stroke-opacity',.6)
+    .attr('pointer-events','none');
+  r.transition().duration(700).ease(d3.easeExpOut)
+    .attr('r',40).attr('stroke-opacity',0).remove();
 }
 
 function closeQuiz() {
@@ -1143,6 +1203,48 @@ function renderCurriculum(){
   document.getElementById('curr-body').innerHTML=html;
 }
 
+
+
+/* ══════════ PREVIEW UNLOCK (tap gray node) ══════════ */
+function previewUnlock(d) {
+  // show a quick color-wave preview of what this node would look like unlocked
+  const g = d3.select('#graph').select('g');
+  const ndEl = d3.selectAll('.node').filter(x=>x.id===d.id);
+  const subCol = {math:'var(--math)',lang:'var(--lang)',sci:'var(--sci)',soc:'var(--soc)'}[d.cat];
+  // flash node to subject color then back
+  ndEl.select('circle')
+    .transition().duration(150).attr('fill', subCol).attr('filter','brightness(1.4)')
+    .transition().duration(300).attr('fill','#1a1a1a').attr('filter','');
+  // ripple
+  const rip = g.append('circle')
+    .attr('cx',d.x).attr('cy',d.y).attr('r',d.critical?17:13)
+    .attr('fill','none').attr('stroke',subCol)
+    .attr('stroke-width',2).attr('stroke-opacity',.7)
+    .attr('pointer-events','none');
+  rip.transition().duration(800).ease(d3.easeExpOut)
+    .attr('r',48).attr('stroke-opacity',0).remove();
+  // briefly light up downstream in subject color too
+  const downstream = LINKS
+    .filter(l=>(l.source.id||l.source)===d.id)
+    .map(l=>l.target.id||l.target);
+  downstream.slice(0,4).forEach((tid,i)=>{
+    setTimeout(()=>{
+      const tnd = NODES.find(x=>x.id===tid);
+      if(!tnd) return;
+      const tel = d3.selectAll('.node').filter(x=>x.id===tid);
+      tel.select('circle')
+        .transition().duration(180).attr('fill',subCol).attr('opacity',.7)
+        .transition().duration(500).attr('fill', masteryFill(tnd)).attr('opacity',1);
+      const tr = g.append('circle')
+        .attr('cx',tnd.x).attr('cy',tnd.y).attr('r',13)
+        .attr('fill','none').attr('stroke',subCol)
+        .attr('stroke-width',1).attr('stroke-opacity',.5)
+        .attr('pointer-events','none');
+      tr.transition().duration(600).ease(d3.easeExpOut)
+        .attr('r',35).attr('stroke-opacity',0).remove();
+    }, 180 + i*150);
+  });
+}
 
 /* ══════════ INIT ══════════ */
 buildGraph();
