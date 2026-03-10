@@ -43,8 +43,8 @@ svg#graph{width:100%;height:100%;display:block;background:#000}
 .node:hover circle{stroke-width:3.5;filter:brightness(1.4)}
 .node text{pointer-events:none;user-select:none;text-anchor:middle;dominant-baseline:middle}
 .status-mastered circle{filter:drop-shadow(0 0 8px var(--mastered))}
-.node-unset circle{filter:grayscale(1) brightness(0.35)}
-.node-unset text{opacity:.4}
+.node-unset circle{opacity:0.28}
+.node-unset text{opacity:0.25}
 @keyframes softPulse{
   0%,100%{opacity:.55;filter:brightness(1)}
   50%    {opacity:1;  filter:brightness(1.9)}
@@ -882,21 +882,26 @@ function unlockAnimate(nodeId, status) {
   }
 }
 
+// subjectColor map using hex (no CSS vars - d3 attr needs resolved values)
+const SUBJECT_HEX = {math:'#38bdf8',lang:'#a78bfa',sci:'#34d399',soc:'#fb923c'};
+
 function glowNode(nodeId, col, intensity, extraDelay=0) {
   setTimeout(()=>{
     const nd = NODES.find(x=>x.id===nodeId);
     if(!nd) return;
     const ndEl = d3.selectAll('.node').filter(d=>d.id===nodeId);
-    const subCol = col || {math:'var(--math)',lang:'var(--lang)',sci:'var(--sci)',soc:'var(--soc)'}[nd.cat];
+    const glowCol = col || SUBJECT_HEX[nd.cat] || '#aaa';
     const baseFill = masteryFill(nd);
-    const dur = 180 + intensity*200;
+    const dur = 200 + intensity * 180;
+    // flash to glow color then back
     ndEl.select('circle')
+      .interrupt()
       .transition().duration(dur).ease(d3.easeSinInOut)
-        .attr('fill', subCol)
-        .attr('filter', `brightness(${1.2+intensity}) drop-shadow(0 0 ${6+intensity*10}px ${subCol})`)
-      .transition().duration(dur*2.5).ease(d3.easeSinInOut)
+        .attr('fill', glowCol)
+        .attr('opacity', 0.7 + intensity * 0.3)
+      .transition().duration(dur * 2).ease(d3.easeSinInOut)
         .attr('fill', baseFill)
-        .attr('filter','');
+        .attr('opacity', 1);
   }, extraDelay);
 }
 
