@@ -385,6 +385,8 @@ function masteryPct(id) {
 
 /* ══════════ GRAPH ══════════ */
 let simulation;
+let SIM_NODES = [];
+let SIM_LINKS = [];
 function buildGraph(){
   const cont=document.getElementById('graph-container');
   const W=cont.clientWidth,H=cont.clientHeight;
@@ -414,6 +416,8 @@ function buildGraph(){
   const sc={math:{x:W*.25,y:H*.28},lang:{x:W*.75,y:H*.28},sci:{x:W*.25,y:H*.72},soc:{x:W*.75,y:H*.72}};
   nodes.forEach(n=>{const c=sc[n.cat]||{x:W/2,y:H/2};n.x=c.x+(Math.random()-.5)*140;n.y=c.y+(Math.random()-.5)*140});
 
+  SIM_NODES = nodes; // グローバル参照（x/y更新済み）
+  SIM_LINKS = links; // グローバル参照
   simulation=d3.forceSimulation(nodes)
     .force('link',d3.forceLink(links).id(d=>d.id).distance(d=>d.cross?200:80).strength(d=>d.cross?.08:.4))
     .force('charge',d3.forceManyBody().strength(-220).distanceMax(300))
@@ -448,7 +452,7 @@ function buildGraph(){
     .attr('marker-end',d=>`url(#arr-${d.cross?'cross':nodeMap[d.s]?.cat||'math'})`);
 
   const nodeSel=g.append('g').selectAll('g').data(nodes).enter().append('g')
-    .attr('class',d=>`node status-${deriveStatus(d.id)} cat-${d.cat}`)
+    .attr('class',d=>{const st=deriveStatus(d.id);return `node status-${st} cat-${d.cat}${st==='unset'?' node-unset':''}`})
     .call(d3.drag()
       .on('start',(e,d)=>{if(!e.active)simulation.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y})
       .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y})
@@ -868,7 +872,7 @@ function unlockAnimate(nodeId, status) {
   for(let hop=0; hop<3; hop++){
     const next = [];
     frontier.forEach(id=>{
-      LINKS.filter(l=>(l.source.id||l.source)===id)
+      SIM_LINKS.filter(l=>(l.source.id||l.source)===id)
         .forEach(l=>{
           const tid = l.target.id||l.target;
           if(!visited.has(tid)){visited.add(tid);next.push(tid);}
@@ -887,21 +891,29 @@ const SUBJECT_HEX = {math:'#38bdf8',lang:'#a78bfa',sci:'#34d399',soc:'#fb923c'};
 
 function glowNode(nodeId, col, intensity, extraDelay=0) {
   setTimeout(()=>{
-    const nd = NODES.find(x=>x.id===nodeId);
+    // SIM_NODESはbuildGraph内のlive nodes（x/y付き）
+    const nd = SIM_NODES.find(x=>x.id===nodeId) || NODES.find(x=>x.id===nodeId);
     if(!nd) return;
-    const ndEl = d3.selectAll('.node').filter(d=>d.id===nodeId);
+    const ndEl = d3.selectAll('g.node').filter(d=>d.id===nodeId);
+    if(ndEl.empty()) return;
     const glowCol = col || SUBJECT_HEX[nd.cat] || '#aaa';
     const baseFill = masteryFill(nd);
-    const dur = 200 + intensity * 180;
-    // flash to glow color then back
+    const dur = 250 + intensity * 200;
     ndEl.select('circle')
       .interrupt()
       .transition().duration(dur).ease(d3.easeSinInOut)
         .attr('fill', glowCol)
-        .attr('opacity', 0.7 + intensity * 0.3)
-      .transition().duration(dur * 2).ease(d3.easeSinInOut)
+        .attr('opacity', 0.85 + intensity * 0.15)
+        .attr('r', (nd.critical?17:13) + intensity*4)
+      .transition().duration(dur * 2.2).ease(d3.easeSinInOut)
         .attr('fill', baseFill)
-        .attr('opacity', 1);
+        .attr('opacity', 1)
+        .attr('r', nd.critical?17:13);
+    // ラベルも一瞬明るく
+    ndEl.select('text')
+      .interrupt()
+      .transition().duration(dur).attr('opacity',1)
+      .transition().duration(dur*2).attr('opacity', deriveStatus(nodeId)==='unset'?0.25:0.9);
   }, extraDelay);
 }
 
@@ -1212,7 +1224,7 @@ function renderCurriculum(){
 function previewUnlock(d) {
   // ぽわっと光って、時間差で次→その次と伝播
   glowNode(d.id, null, 0.85, 0);
-  const downstream = LINKS
+  const downstream = SIM_LINKS
     .filter(l=>(l.source.id||l.source)===d.id)
     .map(l=>l.target.id||l.target);
   downstream.slice(0,5).forEach((tid,i)=>{
@@ -1220,7 +1232,7 @@ function previewUnlock(d) {
   });
   // 2nd hop
   downstream.slice(0,2).forEach(tid=>{
-    const hop2 = LINKS.filter(l=>(l.source.id||l.source)===tid).map(l=>l.target.id||l.target);
+    const hop2 = SIM_LINKS.filter(l=>(l.source.id||l.source)===tid).map(l=>l.target.id||l.target);
     hop2.slice(0,3).forEach((tid2,i)=>{
       setTimeout(()=>glowNode(tid2, null, 0.2, 0), 700 + i*180);
     });
