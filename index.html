@@ -382,6 +382,21 @@ function deriveStatus(id){
 const BASE_FILL = {math:'#0f2a38',lang:'#1e1030',sci:'#0a2018',soc:'#251408'};
 const BASE_STROKE = {math:'#38bdf8',lang:'#a78bfa',sci:'#34d399',soc:'#fb923c'};
 // Mastery levels → progressively more saturated/bright fill
+// ノード半径: ベース + 問題数ボーナス + z奥行きスケール
+function nodeRadius(d) {
+  const base = d.critical ? 17 : 13;
+  const probCount = problems.filter(p=>p.nodeId===d.id).length;
+  const sizeBonus = Math.min(10, probCount * 1.2); // 最大+10px
+  const zScale = d.z !== undefined ? 1 + d.z / 800 : 1; // 手前=大きく 奥=小さく
+  return Math.max(7, (base + sizeBonus) * zScale);
+}
+
+// z奥行きから不透明度・輝度スケール
+function zOpacity(d) {
+  if(d.z === undefined) return 1;
+  return 0.55 + 0.45 * (1 + d.z/300).toFixed(2); // 奥=暗く 手前=明るく
+}
+
 function masteryFill(d) {
   const st = deriveStatus(d.id);
   if(st==='unset') return '#2a2a2e';
@@ -413,6 +428,7 @@ let SIM_NODES = [];
 let SIM_LINKS = [];
 let CURRENT_G = null;
 let CURRENT_ZOOM = d3.zoomIdentity;
+let nodeSel = null;
 function buildGraph(){
   const cont=document.getElementById('graph-container');
   const W=cont.clientWidth,H=cont.clientHeight;
@@ -476,6 +492,17 @@ function buildGraph(){
   svgEl.call(d3.zoom().scaleExtent([.1,5]).on('zoom',e=>{
     g.attr('transform',e.transform);
     CURRENT_ZOOM=e.transform;
+    // ズームレベルに応じてz奥行き感を強調
+    const zoomK = e.transform.k;
+    const depthFactor = Math.min(2.5, zoomK * 0.8);
+    nodeSel && nodeSel.attr('transform',d=>{
+      const zScale = 1 + (d.z||0)/700 * depthFactor;
+      return `translate(${d.x},${d.y}) scale(${Math.max(0.3,zScale).toFixed(3)})`;
+    });
+    nodeSel && nodeSel.select('circle').attr('opacity',d=>{
+      const zOp = 0.4 + 0.6*(1+(d.z||0)/300*depthFactor);
+      return Math.min(1,Math.max(0.15,zOp));
+    });
   }));
 
   const visIds=currentFilter==='all'?new Set(NODES.map(n=>n.id)):new Set(NODES.filter(n=>n.cat===currentFilter).map(n=>n.id));
@@ -484,14 +511,21 @@ function buildGraph(){
   const links=EDGES.filter(e=>visIds.has(e.s)&&visIds.has(e.t)&&(showCross||!e.cross)).map(e=>({...e,source:e.s,target:e.t}));
 
   const sc={math:{x:W*.25,y:H*.28},lang:{x:W*.75,y:H*.28},sci:{x:W*.25,y:H*.72},soc:{x:W*.75,y:H*.72}};
-  nodes.forEach(n=>{const c=sc[n.cat]||{x:W/2,y:H/2};n.x=c.x+(Math.random()-.5)*140;n.y=c.y+(Math.random()-.5)*140});
+  // z座標: 教科ごとに奥行きレイヤー + ランダムオフセット
+  const zBase={math:-120,lang:120,sci:80,soc:-80};
+  nodes.forEach(n=>{
+    const c=sc[n.cat]||{x:W/2,y:H/2};
+    n.x=c.x+(Math.random()-.5)*140;
+    n.y=c.y+(Math.random()-.5)*140;
+    n.z=zBase[n.cat]+(Math.random()-.5)*160;
+  });
 
   SIM_NODES = nodes; // グローバル参照（x/y更新済み）
   SIM_LINKS = links; // グローバル参照
   simulation=d3.forceSimulation(nodes)
     .force('link',d3.forceLink(links).id(d=>d.id).distance(d=>d.cross?200:80).strength(d=>d.cross?.08:.4))
     .force('charge',d3.forceManyBody().strength(-220).distanceMax(300))
-    .force('collision',d3.forceCollide(32))
+    .force('collision',d3.forceCollide(d=>nodeRadius(d)+4))
     .force('x',d3.forceX(n=>sc[n.cat]?.x||W/2).strength(.07))
     .force('y',d3.forceY(n=>sc[n.cat]?.y||H/2).strength(.07))
     .alphaDecay(0.015)
@@ -523,7 +557,7 @@ function buildGraph(){
     .attr('stroke-width', 1)
     .attr('marker-end',d=>`url(#arr-${d.cross?'cross':nodeMap[d.s]?.cat||'math'})`);
 
-  const nodeSel=g.append('g').selectAll('g').data(nodes).enter().append('g')
+  nodeSel=g.append('g').selectAll('g').data(nodes).enter().append('g')
     .attr('class',d=>{const st=deriveStatus(d.id);return `node status-${st} cat-${d.cat}${st==='unset'?' node-unset':''}`})
     .call(d3.drag()
       .on('start',(e,d)=>{if(!e.active)simulation.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y})
@@ -532,10 +566,12 @@ function buildGraph(){
     .on('click',(e,d)=>{e.stopPropagation();focusNode(d);const delay=propagate(d);setTimeout(()=>openSidebar(d),delay)})
     .on('mousemove',showTooltip).on('mouseleave',hideTooltip);
 
-  nodeSel.append('circle').attr('r',d=>d.critical?17:13)
+  nodeSel.append('circle')
+    .attr('r', d => nodeRadius(d))
     .attr('fill', d => masteryFill(d))
     .attr('stroke', d => masteryStroke(d))
-    .attr('stroke-width', d => deriveStatus(d.id)==='weak'?3:deriveStatus(d.id)==='unset'?1.5:2);
+    .attr('stroke-width', d => deriveStatus(d.id)==='weak'?3:deriveStatus(d.id)==='unset'?1.5:2)
+    .attr('opacity', d => zOpacity(d));
 
   // subject label inside node
   nodeSel.append('text').attr('y',1).attr('font-size',8).attr('font-weight',700)
@@ -573,8 +609,23 @@ function buildGraph(){
     .text(d=>d.label.length>8?d.label.slice(0,7)+'…':d.label);
 
   simulation.on('tick',()=>{
-    linkSel.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y).attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
-    nodeSel.attr('transform',d=>`translate(${d.x},${d.y})`);
+    // リンク: z平均で奥行きopacity
+    linkSel
+      .attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+      .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y)
+      .attr('stroke-opacity',d=>{
+        const avgZ=((d.source.z||0)+(d.target.z||0))/2;
+        return d.cross ? 0.08+0.07*(1+avgZ/300) : 0.1+0.12*(1+avgZ/300);
+      });
+    // ノード: z奥行きでscale + sort（手前を上に）
+    nodeSel
+      .sort((a,b)=>(a.z||0)-(b.z||0)) // 奥→手前の順に描画
+      .attr('transform',d=>{
+        const zScale = 1 + (d.z||0)/700;
+        return `translate(${d.x},${d.y}) scale(${zScale.toFixed(3)})`;
+      });
+    // circleのopacityをz更新に合わせる
+    nodeSel.select('circle').attr('opacity',d=>zOpacity(d));
   });
   updateStats(nodes);
 }
