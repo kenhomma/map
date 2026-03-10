@@ -288,46 +288,70 @@ const NODES = [
 ];
 
 const EDGES = [
-  // 算数内
+  // ── 算数内 ──
   {s:'m01',t:'m03'},{s:'m02',t:'m03'},{s:'m03',t:'m04'},{s:'m04',t:'m05'},{s:'m04',t:'m06'},
   {s:'m03',t:'m07'},{s:'m07',t:'m08'},{s:'m07',t:'m09'},{s:'m09',t:'m10'},{s:'m07',t:'m11'},
-  {s:'m07',t:'m12'},{s:'m09',t:'m12'},{s:'m12',t:'m13'},{s:'m12',t:'m14'},{s:'m12',t:'m15'},
-  {s:'m01',t:'m16'},{s:'m16',t:'m17'},{s:'m16',t:'m19'},{s:'m17',t:'m18'},{s:'m18',t:'m20'},
-  {s:'m03',t:'m21'},{s:'m07',t:'m21'},{s:'m03',t:'m22'},{s:'m07',t:'m23'},{s:'m07',t:'m24'},
-  {s:'m07',t:'m25'},{s:'m12',t:'m25'},{s:'m04',t:'m26'},{s:'m04',t:'m27'},{s:'m04',t:'m28'},
-  {s:'m03',t:'m29'},
-  // 国語内
-  {s:'l01',t:'l02'},{s:'l02',t:'l03'},{s:'l01',t:'l04'},{s:'l04',t:'l06'},{s:'l06',t:'l07'},
-  {s:'l07',t:'l08'},{s:'l08',t:'l09'},{s:'l08',t:'l10'},{s:'l10',t:'l11'},{s:'l08',t:'l12'},
-  {s:'l01',t:'l13'},{s:'l08',t:'l14'},{s:'l11',t:'l14'},{s:'l14',t:'l15'},
-  // 理科内
-  {s:'s01',t:'s03'},{s:'s02',t:'s03'},{s:'s04',t:'s07'},{s:'s08',t:'s10'},{s:'s09',t:'s10'},
-  {s:'s09',t:'s11'},{s:'s12',t:'s13'},{s:'s13',t:'s15'},
-  // 社会内
-  {s:'c01',t:'c02'},{s:'c01',t:'c03'},{s:'c01',t:'c04'},{s:'c02',t:'c03'},{s:'c04',t:'c05'},
-  {s:'c03',t:'c06'},{s:'c07',t:'c08'},{s:'c08',t:'c09'},{s:'c09',t:'c10'},{s:'c10',t:'c11'},
-  {s:'c11',t:'c12'},{s:'c13',t:'c14'},{s:'c14',t:'c15'},{s:'c15',t:'c16'},
-  // ── 教科横断エッジ ──
-  // 国語→算数（読解力が文章題の前提）
-  {s:'l08',t:'m21',cross:true},{s:'l09',t:'m21',cross:true},
-  {s:'l08',t:'m23',cross:true},{s:'l09',t:'m13',cross:true},
-  // 算数→理科（計算力が物理・化学の前提）
-  {s:'m07',t:'s04',cross:true},{s:'m09',t:'s04',cross:true},
-  {s:'m07',t:'s09',cross:true},{s:'m17',t:'s04',cross:true},
-  {s:'m07',t:'s05',cross:true},{s:'m07',t:'s07',cross:true},
-  // 算数→社会
-  {s:'m18',t:'c02',cross:true},{s:'m07',t:'c04',cross:true},
-  {s:'m29',t:'c02',cross:true},
-  // 理科→社会
+  {s:'m07',t:'m12'},{s:'m12',t:'m13'},{s:'m13',t:'m14'},{s:'m14',t:'m15'},
+  {s:'m09',t:'m16'},{s:'m16',t:'m17'},{s:'m17',t:'m18'},{s:'m16',t:'m19'},{s:'m17',t:'m20'},
+  {s:'m04',t:'m21'},{s:'m07',t:'m22'},{s:'m12',t:'m23'},{s:'m07',t:'m24'},{s:'m12',t:'m25'},
+  {s:'m03',t:'m26'},{s:'m26',t:'m27'},{s:'m04',t:'m28'},{s:'m29',t:'m07'},
+  // ── 国語内 ──
+  {s:'l01',t:'l02'},{s:'l02',t:'l03'},{s:'l01',t:'l04'},{s:'l04',t:'l05'},
+  {s:'l06',t:'l07'},{s:'l07',t:'l08'},{s:'l06',t:'l09'},{s:'l08',t:'l09'},
+  {s:'l09',t:'l10'},{s:'l10',t:'l11'},{s:'l09',t:'l12'},
+  {s:'l01',t:'l13'},{s:'l07',t:'l14'},{s:'l14',t:'l15'},
+  // ── 理科内 ──
+  {s:'s01',t:'s02'},{s:'s02',t:'s03'},{s:'s01',t:'s03'},
+  {s:'s04',t:'s05'},{s:'s05',t:'s06'},{s:'s06',t:'s07'},
+  {s:'s08',t:'s09'},{s:'s09',t:'s10'},{s:'s10',t:'s11'},
+  {s:'s12',t:'s13'},{s:'s13',t:'s14'},{s:'s14',t:'s15'},
+  // ── 社会内 ──
+  {s:'c01',t:'c02'},{s:'c02',t:'c03'},{s:'c03',t:'c04'},{s:'c04',t:'c05'},{s:'c05',t:'c06'},
+  {s:'c07',t:'c08'},{s:'c08',t:'c09'},{s:'c09',t:'c10'},{s:'c10',t:'c11'},{s:'c11',t:'c12'},
+  {s:'c12',t:'c13'},{s:'c13',t:'c14'},{s:'c14',t:'c15'},{s:'c15',t:'c16'},
+  // ── 教科横断（オリジナル）──
+  {s:'l08',t:'m21',cross:true},{s:'l09',t:'m21',cross:true},{s:'l08',t:'m23',cross:true},
+  {s:'l09',t:'m13',cross:true},
+  {s:'m07',t:'s04',cross:true},{s:'m09',t:'s04',cross:true},{s:'m07',t:'s09',cross:true},
+  {s:'m17',t:'s04',cross:true},{s:'m07',t:'s05',cross:true},{s:'m07',t:'s07',cross:true},
+  {s:'m18',t:'c02',cross:true},{s:'m07',t:'c04',cross:true},{s:'m29',t:'c02',cross:true},
   {s:'s12',t:'c01',cross:true},{s:'s13',t:'c01',cross:true},
-  {s:'s12',t:'c07',cross:true},
-  {s:'s14',t:'c07',cross:true},
-  {s:'s12',t:'c16',cross:true},
+  {s:'s12',t:'c07',cross:true},{s:'s14',t:'c07',cross:true},{s:'s12',t:'c16',cross:true},
   {s:'c01',t:'s12',cross:true},
-  // 社会→国語（時事・現代文）
   {s:'c12',t:'l09',cross:true},{s:'c13',t:'l09',cross:true},
-  // 国語→理科・社会（記述力）
   {s:'l14',t:'s04',cross:true},{s:'l14',t:'c13',cross:true},
+  // ── 教科横断（拡張・相互リレーション）──
+  // 理科×算数
+  {s:'m02',t:'s09',cross:true},   // 分数計算→水溶液（濃度）
+  {s:'m24',t:'s09',cross:true},{s:'s09',t:'m24',cross:true},  // 濃度↔水溶液
+  {s:'m07',t:'s08',cross:true},   // 割合→燃焼
+  {s:'m04',t:'s04',cross:true},   // 約数倍数→てこ
+  {s:'s05',t:'m07',cross:true},{s:'s07',t:'m07',cross:true},  // 電流・浮力→割合
+  {s:'s04',t:'m09',cross:true},   // てこ→比
+  {s:'m12',t:'s06',cross:true},{s:'s06',t:'m12',cross:true},  // 速さ↔光音
+  // 歴史×政治（相互）
+  {s:'c11',t:'c13',cross:true},{s:'c13',t:'c11',cross:true},  // 明治↔政治
+  {s:'c12',t:'c13',cross:true},{s:'c13',t:'c12',cross:true},  // 昭和↔政治
+  {s:'c11',t:'c14',cross:true},   // 明治→経済
+  {s:'c14',t:'c15',cross:true},   // 経済→国際
+  {s:'c15',t:'c16',cross:true},{s:'c16',t:'c15',cross:true},  // 国際↔環境
+  // 歴史×国語（古文）
+  {s:'c10',t:'l13',cross:true},{s:'c08',t:'l13',cross:true},  // 江戸・鎌倉→古文
+  {s:'l13',t:'c08',cross:true},   // 古文→鎌倉
+  {s:'c09',t:'l03',cross:true},{s:'l03',t:'c09',cross:true},  // 戦国↔ことわざ
+  {s:'c10',t:'l02',cross:true},   // 江戸→語彙
+  // 社会×理科
+  {s:'c03',t:'s01',cross:true},{s:'s01',t:'c03',cross:true},  // 農業↔植物
+  {s:'c04',t:'s08',cross:true},   // 工業→燃焼
+  {s:'c16',t:'s12',cross:true},   // 環境→気象
+  {s:'s15',t:'c01',cross:true},   // 地形変化→地理
+  {s:'c07',t:'s13',cross:true},   // 縄文→地層
+  // 国語×社会
+  {s:'c15',t:'l09',cross:true},   // 国際→説明文
+  {s:'l08',t:'c13',cross:true},   // 要旨→政治
+  // 算数×社会
+  {s:'m29',t:'c06',cross:true},{s:'c06',t:'m29',cross:true},  // 統計↔人口
+  {s:'m08',t:'c04',cross:true},   // 百分率→工業
 ];
 
 /* ══════════ STATE ══════════ */
@@ -395,6 +419,29 @@ function buildGraph(){
 
   // Background rect — ensures black even in iframe
   svgEl.append('rect').attr('width',W).attr('height',H).attr('fill','#000');
+
+  // 星座背景: ランダムな星を散らす
+  const starsG = svgEl.append('g').attr('class','stars-layer').attr('pointer-events','none');
+  const STAR_COUNT = 120;
+  for(let i=0; i<STAR_COUNT; i++){
+    const x = Math.random()*W, y = Math.random()*H;
+    const r = Math.random()*1.2 + 0.3;
+    const op = Math.random()*0.4 + 0.1;
+    starsG.append('circle')
+      .attr('cx',x).attr('cy',y).attr('r',r)
+      .attr('fill','#fff').attr('opacity',op);
+  }
+  // 星の瞬き（一部をゆっくりフェード）
+  function twinkleStars(){
+    starsG.selectAll('circle')
+      .filter(()=>Math.random()<0.08)
+      .transition().duration(800+Math.random()*1200)
+      .attr('opacity', Math.random()*0.5+0.05)
+      .transition().duration(800+Math.random()*1200)
+      .attr('opacity', Math.random()*0.4+0.1);
+    setTimeout(twinkleStars, 600);
+  }
+  setTimeout(twinkleStars, 1000);
 
   const defs=svgEl.append('defs');
   ['math','lang','sci','soc','cross'].forEach(t=>{
@@ -1224,27 +1271,84 @@ function renderCurriculum(){
 
 /* ══════════ PREVIEW UNLOCK (tap any node) ══════════ */
 function propagate(d) {
+  // BFS伝播: visited setで無限ループ防止・全到達ノードに光を伝える
+  const visited = new Set([d.id]);
+  const queue = [{id: d.id, depth: 0, delay: 0}];
+  let maxDelay = 0;
+
   // 起点ノードをぽわっと光らせる
-  glowNode(d.id, null, 0.85, 0);
-  // シナプス伝達: 線→次ノード→線→次ノード
-  const hop1Links = SIM_LINKS.filter(l=>(l.source.id||l.source)===d.id);
-  const hop1Nodes = hop1Links.map(l=>l.target.id||l.target);
-  hop1Links.forEach((l,i)=>{
-    pulseLink(l, 280 + i*120);
-    const tid = l.target.id||l.target;
-    setTimeout(()=>glowNode(tid, null, 0.45, 0), 480 + i*120);
-  });
-  // 2nd hop
-  hop1Nodes.slice(0,3).forEach((tid,hi)=>{
-    const hop2Links = SIM_LINKS.filter(l=>(l.source.id||l.source)===tid);
-    hop2Links.slice(0,2).forEach((l2,i)=>{
-      pulseLink(l2, 800 + hi*150 + i*100);
-      const tid2 = l2.target.id||l2.target;
-      setTimeout(()=>glowNode(tid2, null, 0.22, 0), 980 + hi*150 + i*100);
+  glowNode(d.id, null, 0.9, 0);
+
+  while(queue.length > 0) {
+    const {id, depth, delay} = queue.shift();
+    const outLinks = SIM_LINKS.filter(l => (l.source.id||l.source) === id);
+
+    outLinks.forEach((link, i) => {
+      const tid = link.target.id || link.target;
+      if(visited.has(tid)) return; // ループ防止
+      visited.add(tid);
+
+      const src = link.source;
+      const tgt = link.target;
+      const dist = Math.hypot((tgt.x||0)-(src.x||0), (tgt.y||0)-(src.y||0));
+      const travelMs = Math.min(700, Math.max(220, dist * 1.6));
+
+      // 線に光の粒を走らせる
+      const linkDelay = delay + i * 60;
+      pulseLink(link, linkDelay);
+
+      // ノード到達タイミング
+      const nodeDelay = linkDelay + travelMs;
+      const intensity = Math.max(0.12, 0.8 - depth * 0.18);
+      glowNode(tid, null, intensity, nodeDelay);
+
+      if(nodeDelay > maxDelay) maxDelay = nodeDelay;
+
+      // 次のhopをキューに追加（深さ制限なし・visited管理のみ）
+      queue.push({id: tid, depth: depth + 1, delay: nodeDelay + 80});
     });
-  });
-  // ウィンドウ表示: 2hop伝播完了後にスライドイン
-  return 1600;
+  }
+
+  // 伝播完了後に星座ラインを一瞬描く
+  setTimeout(()=>{
+    drawConstellation([...visited]);
+    setTimeout(()=>fadeConstellation(), 1800);
+  }, maxDelay + 100);
+
+  // ウィンドウはBFS完了後（最後のノード光終わり）にスライドイン
+  return Math.min(maxDelay + 400, 3000); // 最大3秒待ち
+}
+
+let constellationLines = null;
+function drawConstellation(nodeIds) {
+  const svgG = d3.select('#graph').select('g');
+  if(constellationLines) constellationLines.remove();
+  const visitedNodes = nodeIds.map(id=>SIM_NODES.find(n=>n.id===id)).filter(Boolean);
+  if(visitedNodes.length < 2) return;
+  constellationLines = svgG.insert('g',':first-child').attr('class','constellation').attr('pointer-events','none');
+  // 近い2ノード間だけ線を引く（全結合は多すぎるので距離制限）
+  for(let i=0;i<visitedNodes.length;i++){
+    for(let j=i+1;j<visitedNodes.length;j++){
+      const a=visitedNodes[i], b=visitedNodes[j];
+      const d=Math.hypot(a.x-b.x, a.y-b.y);
+      if(d<160){
+        const col = SUBJECT_HEX[a.cat]||'#fff';
+        constellationLines.append('line')
+          .attr('x1',a.x).attr('y1',a.y).attr('x2',b.x).attr('y2',b.y)
+          .attr('stroke',col).attr('stroke-opacity',0)
+          .attr('stroke-width',0.5)
+          .transition().duration(400).attr('stroke-opacity',0.2);
+      }
+    }
+  }
+}
+function fadeConstellation() {
+  if(constellationLines){
+    constellationLines.selectAll('line')
+      .transition().duration(1200)
+      .attr('stroke-opacity',0)
+      .on('end',function(d,i){if(i===0&&constellationLines){constellationLines.remove();constellationLines=null;}});
+  }
 }
 
 function pulseLink(linkData, delay) {
