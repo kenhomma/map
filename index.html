@@ -1396,6 +1396,10 @@ function pulseLink(linkData, delay) {
       .transition().duration(travelMs*0.8).attr('stroke-opacity',0.18).attr('stroke-width',1);
   }, delay);
 }
+
+/* ══════════ INIT ══════════ */
+buildGraph();
+window.addEventListener('resize',buildGraph);
 </script>
 
 <!-- QUIZ MODAL -->
