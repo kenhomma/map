@@ -309,7 +309,7 @@ const EDGES = [
   {s:'c01',t:'c02'},{s:'c02',t:'c03'},{s:'c03',t:'c04'},{s:'c04',t:'c05'},{s:'c05',t:'c06'},
   {s:'c07',t:'c08'},{s:'c08',t:'c09'},{s:'c09',t:'c10'},{s:'c10',t:'c11'},{s:'c11',t:'c12'},
   {s:'c12',t:'c13'},{s:'c13',t:'c14'},{s:'c14',t:'c15'},{s:'c15',t:'c16'},
-  // ── 教科横断（オリジナル）──
+  // ── 教科横断 ──
   {s:'l08',t:'m21',cross:true},{s:'l09',t:'m21',cross:true},{s:'l08',t:'m23',cross:true},
   {s:'l09',t:'m13',cross:true},
   {s:'m07',t:'s04',cross:true},{s:'m09',t:'s04',cross:true},{s:'m07',t:'s09',cross:true},
@@ -320,38 +320,22 @@ const EDGES = [
   {s:'c01',t:'s12',cross:true},
   {s:'c12',t:'l09',cross:true},{s:'c13',t:'l09',cross:true},
   {s:'l14',t:'s04',cross:true},{s:'l14',t:'c13',cross:true},
-  // ── 教科横断（拡張・相互リレーション）──
-  // 理科×算数
-  {s:'m02',t:'s09',cross:true},   // 分数計算→水溶液（濃度）
-  {s:'m24',t:'s09',cross:true},{s:'s09',t:'m24',cross:true},  // 濃度↔水溶液
-  {s:'m07',t:'s08',cross:true},   // 割合→燃焼
-  {s:'m04',t:'s04',cross:true},   // 約数倍数→てこ
-  {s:'s05',t:'m07',cross:true},{s:'s07',t:'m07',cross:true},  // 電流・浮力→割合
-  {s:'s04',t:'m09',cross:true},   // てこ→比
-  {s:'m12',t:'s06',cross:true},{s:'s06',t:'m12',cross:true},  // 速さ↔光音
-  // 歴史×政治（相互）
-  {s:'c11',t:'c13',cross:true},{s:'c13',t:'c11',cross:true},  // 明治↔政治
-  {s:'c12',t:'c13',cross:true},{s:'c13',t:'c12',cross:true},  // 昭和↔政治
-  {s:'c11',t:'c14',cross:true},   // 明治→経済
-  {s:'c14',t:'c15',cross:true},   // 経済→国際
-  {s:'c15',t:'c16',cross:true},{s:'c16',t:'c15',cross:true},  // 国際↔環境
-  // 歴史×国語（古文）
-  {s:'c10',t:'l13',cross:true},{s:'c08',t:'l13',cross:true},  // 江戸・鎌倉→古文
-  {s:'l13',t:'c08',cross:true},   // 古文→鎌倉
-  {s:'c09',t:'l03',cross:true},{s:'l03',t:'c09',cross:true},  // 戦国↔ことわざ
-  {s:'c10',t:'l02',cross:true},   // 江戸→語彙
-  // 社会×理科
-  {s:'c03',t:'s01',cross:true},{s:'s01',t:'c03',cross:true},  // 農業↔植物
-  {s:'c04',t:'s08',cross:true},   // 工業→燃焼
-  {s:'c16',t:'s12',cross:true},   // 環境→気象
-  {s:'s15',t:'c01',cross:true},   // 地形変化→地理
-  {s:'c07',t:'s13',cross:true},   // 縄文→地層
-  // 国語×社会
-  {s:'c15',t:'l09',cross:true},   // 国際→説明文
-  {s:'l08',t:'c13',cross:true},   // 要旨→政治
-  // 算数×社会
-  {s:'m29',t:'c06',cross:true},{s:'c06',t:'m29',cross:true},  // 統計↔人口
-  {s:'m08',t:'c04',cross:true},   // 百分率→工業
+  // ── 拡張横断（相互）──
+  {s:'m02',t:'s09',cross:true},{s:'m24',t:'s09',cross:true},{s:'s09',t:'m24',cross:true},
+  {s:'m07',t:'s08',cross:true},{s:'m04',t:'s04',cross:true},
+  {s:'s05',t:'m07',cross:true},{s:'s07',t:'m07',cross:true},{s:'s04',t:'m09',cross:true},
+  {s:'m12',t:'s06',cross:true},{s:'s06',t:'m12',cross:true},
+  {s:'c11',t:'c13',cross:true},{s:'c13',t:'c11',cross:true},
+  {s:'c12',t:'c13',cross:true},{s:'c13',t:'c12',cross:true},
+  {s:'c11',t:'c14',cross:true},{s:'c14',t:'c15',cross:true},
+  {s:'c15',t:'c16',cross:true},{s:'c16',t:'c15',cross:true},
+  {s:'c10',t:'l13',cross:true},{s:'c08',t:'l13',cross:true},{s:'l13',t:'c08',cross:true},
+  {s:'c09',t:'l03',cross:true},{s:'l03',t:'c09',cross:true},{s:'c10',t:'l02',cross:true},
+  {s:'c03',t:'s01',cross:true},{s:'s01',t:'c03',cross:true},
+  {s:'c04',t:'s08',cross:true},{s:'c16',t:'s12',cross:true},
+  {s:'s15',t:'c01',cross:true},{s:'c07',t:'s13',cross:true},
+  {s:'c15',t:'l09',cross:true},{s:'l08',t:'c13',cross:true},
+  {s:'m29',t:'c06',cross:true},{s:'c06',t:'m29',cross:true},{s:'m08',t:'c04',cross:true},
 ];
 
 /* ══════════ STATE ══════════ */
@@ -412,7 +396,6 @@ let simulation;
 let SIM_NODES = [];
 let SIM_LINKS = [];
 let CURRENT_G = null;
-let CURRENT_SVG = null;
 let CURRENT_ZOOM = d3.zoomIdentity;
 function buildGraph(){
   const cont=document.getElementById('graph-container');
@@ -434,7 +417,7 @@ function buildGraph(){
       .attr('cx',x).attr('cy',y).attr('r',r)
       .attr('fill','#fff').attr('opacity',op);
   }
-  // 星の瞬き
+  // 星の瞬き（一部をゆっくりフェード）
   function twinkleStars(){
     starsG.selectAll('circle')
       .filter(()=>Math.random()<0.08)
@@ -446,36 +429,27 @@ function buildGraph(){
   }
   setTimeout(twinkleStars, 1000);
 
-  // 流れ星: SVGの星空レイヤー（starsG）に描く
+  // 流れ星
   function shootingStar(){
-    const angle = Math.PI/6 + Math.random()*Math.PI/6; // 右斜め下
+    const angle = Math.PI/6 + Math.random()*Math.PI/6;
     const startX = Math.random()*W*0.8;
     const startY = Math.random()*H*0.3;
     const len = 60 + Math.random()*100;
     const endX = startX + Math.cos(angle)*len;
     const endY = startY + Math.sin(angle)*len;
     const dur = 500 + Math.random()*400;
-
-    // グラデーション線で流れ星を表現
     const star = starsG.append('line')
-      .attr('x1', startX).attr('y1', startY)
-      .attr('x2', startX).attr('y2', startY)
-      .attr('stroke', '#fff')
-      .attr('stroke-width', 1.2)
-      .attr('stroke-opacity', 0)
-      .attr('pointer-events', 'none');
-
-    star.transition().duration(dur*0.2)
-        .attr('stroke-opacity', 0.9)
+      .attr('x1',startX).attr('y1',startY)
+      .attr('x2',startX).attr('y2',startY)
+      .attr('stroke','#fff').attr('stroke-width',1.2)
+      .attr('stroke-opacity',0).attr('pointer-events','none');
+    star.transition().duration(dur*0.2).attr('stroke-opacity',0.9)
       .transition().duration(dur*0.6).ease(d3.easeLinear)
-        .attr('x1', endX - (endX-startX)*0.3).attr('y1', endY - (endY-startY)*0.3)
-        .attr('x2', endX).attr('y2', endY)
+        .attr('x1',endX-(endX-startX)*0.3).attr('y1',endY-(endY-startY)*0.3)
+        .attr('x2',endX).attr('y2',endY)
       .transition().duration(dur*0.4)
-        .attr('stroke-opacity', 0)
-        .attr('x1', endX).attr('y1', endY)
+        .attr('stroke-opacity',0).attr('x1',endX).attr('y1',endY)
         .remove();
-
-    // 次の流れ星: 8〜25秒後にランダムで
     setTimeout(shootingStar, 8000 + Math.random()*17000);
   }
   setTimeout(shootingStar, 3000 + Math.random()*5000);
@@ -490,8 +464,7 @@ function buildGraph(){
   });
 
   const g=svgEl.append('g');
-  CURRENT_G = g; // グローバル保持
-  CURRENT_SVG = svgEl;
+  CURRENT_G = g;
   svgEl.call(d3.zoom().scaleExtent([.1,5]).on('zoom',e=>{
     g.attr('transform',e.transform);
     CURRENT_ZOOM = e.transform;
@@ -1311,121 +1284,59 @@ function renderCurriculum(){
 
 
 
-/* ══════════ PREVIEW UNLOCK (tap any node) ══════════ */
+/* ══════════ PROPAGATE (tap any node) ══════════ */
 function propagate(d) {
-  // BFS伝播: visited setで無限ループ防止・全到達ノードに光を伝える
   const visited = new Set([d.id]);
-  const queue = [{id: d.id, depth: 0, delay: 0}];
+  const queue = [{id:d.id, depth:0, delay:0}];
   let maxDelay = 0;
-
-  // 起点ノードをぽわっと光らせる
   glowNode(d.id, null, 0.9, 0);
-
-  while(queue.length > 0) {
+  while(queue.length > 0){
     const {id, depth, delay} = queue.shift();
-    const outLinks = SIM_LINKS.filter(l => (l.source.id||l.source) === id);
-
-    outLinks.forEach((link, i) => {
-      const tid = link.target.id || link.target;
-      if(visited.has(tid)) return; // ループ防止
+    const outLinks = SIM_LINKS.filter(l=>(l.source.id||l.source)===id);
+    outLinks.forEach((link,i)=>{
+      const tid = link.target.id||link.target;
+      if(visited.has(tid)) return;
       visited.add(tid);
-
-      const src = link.source;
-      const tgt = link.target;
-      const dist = Math.hypot((tgt.x||0)-(src.x||0), (tgt.y||0)-(src.y||0));
-      const travelMs = Math.min(700, Math.max(220, dist * 1.6));
-
-      // 線に光の粒を走らせる
-      const linkDelay = delay + i * 60;
+      const src = link.source, tgt = link.target;
+      const dist = typeof src==='object'&&typeof tgt==='object'
+        ? Math.hypot((tgt.x||0)-(src.x||0),(tgt.y||0)-(src.y||0)) : 100;
+      const travelMs = Math.min(650, Math.max(250, dist*1.7));
+      const linkDelay = delay + i*50;
       pulseLink(link, linkDelay);
-
-      // ノード到達タイミング
       const nodeDelay = linkDelay + travelMs;
-      const intensity = Math.max(0.12, 0.8 - depth * 0.18);
+      const intensity = Math.max(0.1, 0.85 - depth*0.15);
       glowNode(tid, null, intensity, nodeDelay);
-
       if(nodeDelay > maxDelay) maxDelay = nodeDelay;
-
-      // 次のhopをキューに追加（深さ制限なし・visited管理のみ）
-      queue.push({id: tid, depth: depth + 1, delay: nodeDelay + 80});
+      queue.push({id:tid, depth:depth+1, delay:nodeDelay+60});
     });
   }
-
-  // 伝播完了後に星座ラインを一瞬描く
   setTimeout(()=>{
     drawConstellation([...visited]);
     setTimeout(()=>fadeConstellation(), 1800);
-  }, maxDelay + 100);
-
-  // ウィンドウはBFS完了後（最後のノード光終わり）にスライドイン
-  return Math.min(maxDelay + 400, 3000); // 最大3秒待ち
+  }, maxDelay+100);
+  return Math.min(maxDelay+400, 3000);
 }
 
-let constellationLines = null;
-function drawConstellation(nodeIds) {
-  const svgG = d3.select('#graph').select('g');
-  if(constellationLines) constellationLines.remove();
-  const visitedNodes = nodeIds.map(id=>SIM_NODES.find(n=>n.id===id)).filter(Boolean);
-  if(visitedNodes.length < 2) return;
-  constellationLines = svgG.insert('g',':first-child').attr('class','constellation').attr('pointer-events','none');
-  // 近い2ノード間だけ線を引く（全結合は多すぎるので距離制限）
-  for(let i=0;i<visitedNodes.length;i++){
-    for(let j=i+1;j<visitedNodes.length;j++){
-      const a=visitedNodes[i], b=visitedNodes[j];
-      const d=Math.hypot(a.x-b.x, a.y-b.y);
-      if(d<160){
-        const col = SUBJECT_HEX[a.cat]||'#fff';
-        constellationLines.append('line')
-          .attr('x1',a.x).attr('y1',a.y).attr('x2',b.x).attr('y2',b.y)
-          .attr('stroke',col).attr('stroke-opacity',0)
-          .attr('stroke-width',0.5)
-          .transition().duration(400).attr('stroke-opacity',0.2);
-      }
-    }
-  }
-}
-function fadeConstellation() {
-  if(constellationLines){
-    constellationLines.selectAll('line')
-      .transition().duration(1200)
-      .attr('stroke-opacity',0)
-      .on('end',function(d,i){if(i===0&&constellationLines){constellationLines.remove();constellationLines=null;}});
-  }
-}
 
 function pulseLink(linkData, delay) {
   setTimeout(()=>{
     if(!CURRENT_G) return;
     const src = linkData.source;
     const tgt = linkData.target;
-    if(!src || !tgt) return;
-    // simulation座標（g内座標系）を直接使用
-    const x1 = typeof src === 'object' ? src.x : 0;
-    const y1 = typeof src === 'object' ? src.y : 0;
-    const x2 = typeof tgt === 'object' ? tgt.x : 0;
-    const y2 = typeof tgt === 'object' ? tgt.y : 0;
-    if(!x1 && !y1 && !x2 && !y2) return;
-
-    const glowCol = SUBJECT_HEX[(src.cat)||'math'] || '#38bdf8';
+    if(!src || !tgt || typeof src !== 'object') return;
+    const x1=src.x||0, y1=src.y||0, x2=tgt.x||0, y2=tgt.y||0;
+    if(!x1 && !y1) return;
+    const glowCol = SUBJECT_HEX[src.cat||'math'] || '#38bdf8';
     const dist = Math.hypot(x2-x1, y2-y1);
-    const travelMs = Math.min(650, Math.max(250, dist * 1.7));
-
-    // 光の粒をCURRENT_G（zoom済みg）の中に追加
+    const travelMs = Math.min(650, Math.max(250, dist*1.7));
     const particle = CURRENT_G.append('circle')
-      .attr('r', 3.5)
-      .attr('fill', glowCol)
-      .attr('opacity', 0.95)
-      .attr('cx', x1).attr('cy', y1)
-      .attr('pointer-events', 'none');
-
+      .attr('r',3.5).attr('fill',glowCol).attr('opacity',0.95)
+      .attr('cx',x1).attr('cy',y1).attr('pointer-events','none');
     particle
       .transition().duration(travelMs).ease(d3.easeLinear)
-        .attr('cx', x2).attr('cy', y2).attr('r', 2.5)
-      .transition().duration(150).ease(d3.easeExpOut)
-        .attr('r', 0).attr('opacity', 0)
-        .remove();
-
-    // 線を一瞬光らせる
+        .attr('cx',x2).attr('cy',y2).attr('r',2.5)
+      .transition().duration(150)
+        .attr('r',0).attr('opacity',0).remove();
     const lid = linkData.index;
     d3.selectAll('line.link').filter((d,i)=>i===lid)
       .interrupt()
@@ -1790,89 +1701,6 @@ function renderCurriculum(){
   document.getElementById('curr-body').innerHTML=html;
 }
 
-
-
-/* ══════════ PREVIEW UNLOCK (tap any node) ══════════ */
-function propagate(d) {
-  // BFS伝播: visited setで無限ループ防止・全到達ノードに光を伝える
-  const visited = new Set([d.id]);
-  const queue = [{id: d.id, depth: 0, delay: 0}];
-  let maxDelay = 0;
-
-  // 起点ノードをぽわっと光らせる
-  glowNode(d.id, null, 0.9, 0);
-
-  while(queue.length > 0) {
-    const {id, depth, delay} = queue.shift();
-    const outLinks = SIM_LINKS.filter(l => (l.source.id||l.source) === id);
-
-    outLinks.forEach((link, i) => {
-      const tid = link.target.id || link.target;
-      if(visited.has(tid)) return; // ループ防止
-      visited.add(tid);
-
-      const src = link.source;
-      const tgt = link.target;
-      const dist = Math.hypot((tgt.x||0)-(src.x||0), (tgt.y||0)-(src.y||0));
-      const travelMs = Math.min(700, Math.max(220, dist * 1.6));
-
-      // 線に光の粒を走らせる
-      const linkDelay = delay + i * 60;
-      pulseLink(link, linkDelay);
-
-      // ノード到達タイミング
-      const nodeDelay = linkDelay + travelMs;
-      const intensity = Math.max(0.12, 0.8 - depth * 0.18);
-      glowNode(tid, null, intensity, nodeDelay);
-
-      if(nodeDelay > maxDelay) maxDelay = nodeDelay;
-
-      // 次のhopをキューに追加（深さ制限なし・visited管理のみ）
-      queue.push({id: tid, depth: depth + 1, delay: nodeDelay + 80});
-    });
-  }
-
-  // 伝播完了後に星座ラインを一瞬描く
-  setTimeout(()=>{
-    drawConstellation([...visited]);
-    setTimeout(()=>fadeConstellation(), 1800);
-  }, maxDelay + 100);
-
-  // ウィンドウはBFS完了後（最後のノード光終わり）にスライドイン
-  return Math.min(maxDelay + 400, 3000); // 最大3秒待ち
-}
-
-let constellationLines = null;
-function drawConstellation(nodeIds) {
-  const svgG = d3.select('#graph').select('g');
-  if(constellationLines) constellationLines.remove();
-  const visitedNodes = nodeIds.map(id=>SIM_NODES.find(n=>n.id===id)).filter(Boolean);
-  if(visitedNodes.length < 2) return;
-  constellationLines = svgG.insert('g',':first-child').attr('class','constellation').attr('pointer-events','none');
-  // 近い2ノード間だけ線を引く（全結合は多すぎるので距離制限）
-  for(let i=0;i<visitedNodes.length;i++){
-    for(let j=i+1;j<visitedNodes.length;j++){
-      const a=visitedNodes[i], b=visitedNodes[j];
-      const d=Math.hypot(a.x-b.x, a.y-b.y);
-      if(d<160){
-        const col = SUBJECT_HEX[a.cat]||'#fff';
-        constellationLines.append('line')
-          .attr('x1',a.x).attr('y1',a.y).attr('x2',b.x).attr('y2',b.y)
-          .attr('stroke',col).attr('stroke-opacity',0)
-          .attr('stroke-width',0.5)
-          .transition().duration(400).attr('stroke-opacity',0.2);
-      }
-    }
-  }
-}
-function fadeConstellation() {
-  if(constellationLines){
-    constellationLines.selectAll('line')
-      .transition().duration(1200)
-      .attr('stroke-opacity',0)
-      .on('end',function(d,i){if(i===0&&constellationLines){constellationLines.remove();constellationLines=null;}});
-  }
-}
 
 function pulseLink(linkData, delay) {
   setTimeout(()=>{
