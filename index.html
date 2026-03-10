@@ -45,20 +45,13 @@ svg#graph{width:100%;height:100%;display:block;background:#000}
 .status-mastered circle{filter:drop-shadow(0 0 8px var(--mastered))}
 .node-unset circle{filter:grayscale(1) brightness(0.35)}
 .node-unset text{opacity:.4}
-@keyframes nodeUnlock{
-  0%  {r:13;opacity:.6}
-  40% {r:32;opacity:.9}
-  70% {r:22;opacity:1}
-  100%{r:13;opacity:1}
+@keyframes softPulse{
+  0%,100%{opacity:.55;filter:brightness(1)}
+  50%    {opacity:1;  filter:brightness(1.9)}
 }
-@keyframes rippleOut{
-  0%  {r:14;stroke-opacity:.9;stroke-width:3}
-  100%{r:55;stroke-opacity:0;stroke-width:1}
-}
-@keyframes chainGlow{
-  0%  {stroke-opacity:.15}
-  50% {stroke-opacity:.9}
-  100%{stroke-opacity:.15}
+@keyframes idleFlicker{
+  0%,100%{opacity:.32}
+  50%    {opacity:.58}
 }
 .prob-dot{transition:opacity .1s,transform .15s;transform-origin:center}
 .prob-dot:hover{opacity:.7;transform:scale(1.7)}
@@ -155,7 +148,7 @@ textarea#prob-input:focus{outline:none;border-color:var(--cross)}
   <div id="graph-container">
     <svg id="graph"></svg>
     <div id="stats-bar"></div>
-    <div id="legend">
+    <div id="legend" style="display:none">
       <div class="lg-sec">教科</div>
       <div class="lg-row"><div class="lg-dot" style="background:#0f2a38;border-color:var(--math)"></div>算数</div>
       <div class="lg-row"><div class="lg-dot" style="background:#1e1030;border-color:var(--lang)"></div>国語</div>
@@ -437,6 +430,17 @@ function buildGraph(){
     setTimeout(idleDrift, 4000);
   }
   setTimeout(idleDrift, 3000);
+
+  // ambient flicker: pick random touched node every ~2s and softly glow it
+  function ambientFlicker(){
+    const touched = NODES.filter(n=>deriveStatus(n.id)!=='unset');
+    if(touched.length){
+      const nd = touched[Math.floor(Math.random()*touched.length)];
+      glowNode(nd.id, null, 0.25, 0);
+    }
+    setTimeout(ambientFlicker, 1800 + Math.random()*1400);
+  }
+  setTimeout(ambientFlicker, 2000);
 
   const linkSel=g.append('g').selectAll('line').data(links).enter().append('line')
     .attr('class',d=>`link${d.cross?' cross':''}`)
@@ -854,52 +858,46 @@ function saveQuizResult() {
   }
 }
 
+// BFS chain: glow spreads node→node→node with time delay
 function unlockAnimate(nodeId, status) {
-  const nd = NODES.find(x=>x.id===nodeId);
-  if(!nd) return;
-  const g = d3.select('#graph').select('g');
   const col = status==='mastered'?'var(--mastered)':status==='weak'?'var(--weak)':'var(--learning)';
-  // burst ripple rings x3
-  [0,150,300].forEach(delay=>{
-    setTimeout(()=>{
-      const r = g.append('circle')
-        .attr('cx',nd.x).attr('cy',nd.y)
-        .attr('r',nd.critical?17:13)
-        .attr('fill','none')
-        .attr('stroke',col)
-        .attr('stroke-width',2.5)
-        .attr('pointer-events','none');
-      r.transition().duration(900).ease(d3.easeExpOut)
-        .attr('r',60).attr('stroke-opacity',0).attr('stroke-width',.5).remove();
-    }, delay);
-  });
-  // chain: light up downstream nodes sequentially
-  const downstream = LINKS
-    .filter(l=>(l.source.id||l.source)===nodeId)
-    .map(l=>l.target.id||l.target);
-  downstream.forEach((tid,i)=>{
-    setTimeout(()=>chainPulse(tid), 500 + i*220);
-  });
+  glowNode(nodeId, col, 1.0, 0);
+  // BFS up to 3 hops
+  const visited = new Set([nodeId]);
+  let frontier = [nodeId];
+  for(let hop=0; hop<3; hop++){
+    const next = [];
+    frontier.forEach(id=>{
+      LINKS.filter(l=>(l.source.id||l.source)===id)
+        .forEach(l=>{
+          const tid = l.target.id||l.target;
+          if(!visited.has(tid)){visited.add(tid);next.push(tid);}
+        });
+    });
+    const delay = 450 + hop*380;
+    const intensity = [0.55, 0.35, 0.2][hop];
+    next.forEach((tid,i)=>setTimeout(()=>glowNode(tid, null, intensity, i*80), delay));
+    frontier = next;
+    if(!next.length) break;
+  }
 }
 
-function chainPulse(nodeId) {
-  const nd = NODES.find(x=>x.id===nodeId);
-  if(!nd) return;
-  const g = d3.select('#graph').select('g');
-  const ndEl = d3.selectAll('.node').filter(d=>d.id===nodeId);
-  // flash the node
-  ndEl.select('circle')
-    .transition().duration(200).attr('fill','#ffffff').attr('stroke-opacity',1)
-    .transition().duration(600).attr('fill', masteryFill(nd)).attr('stroke-opacity',.8);
-  // small ripple
-  const r = g.append('circle')
-    .attr('cx',nd.x).attr('cy',nd.y)
-    .attr('r',nd.critical?17:13)
-    .attr('fill','none').attr('stroke','#fff')
-    .attr('stroke-width',1.5).attr('stroke-opacity',.6)
-    .attr('pointer-events','none');
-  r.transition().duration(700).ease(d3.easeExpOut)
-    .attr('r',40).attr('stroke-opacity',0).remove();
+function glowNode(nodeId, col, intensity, extraDelay=0) {
+  setTimeout(()=>{
+    const nd = NODES.find(x=>x.id===nodeId);
+    if(!nd) return;
+    const ndEl = d3.selectAll('.node').filter(d=>d.id===nodeId);
+    const subCol = col || {math:'var(--math)',lang:'var(--lang)',sci:'var(--sci)',soc:'var(--soc)'}[nd.cat];
+    const baseFill = masteryFill(nd);
+    const dur = 180 + intensity*200;
+    ndEl.select('circle')
+      .transition().duration(dur).ease(d3.easeSinInOut)
+        .attr('fill', subCol)
+        .attr('filter', `brightness(${1.2+intensity}) drop-shadow(0 0 ${6+intensity*10}px ${subCol})`)
+      .transition().duration(dur*2.5).ease(d3.easeSinInOut)
+        .attr('fill', baseFill)
+        .attr('filter','');
+  }, extraDelay);
 }
 
 function closeQuiz() {
@@ -1207,42 +1205,20 @@ function renderCurriculum(){
 
 /* ══════════ PREVIEW UNLOCK (tap gray node) ══════════ */
 function previewUnlock(d) {
-  // show a quick color-wave preview of what this node would look like unlocked
-  const g = d3.select('#graph').select('g');
-  const ndEl = d3.selectAll('.node').filter(x=>x.id===d.id);
-  const subCol = {math:'var(--math)',lang:'var(--lang)',sci:'var(--sci)',soc:'var(--soc)'}[d.cat];
-  // flash node to subject color then back
-  ndEl.select('circle')
-    .transition().duration(150).attr('fill', subCol).attr('filter','brightness(1.4)')
-    .transition().duration(300).attr('fill','#1a1a1a').attr('filter','');
-  // ripple
-  const rip = g.append('circle')
-    .attr('cx',d.x).attr('cy',d.y).attr('r',d.critical?17:13)
-    .attr('fill','none').attr('stroke',subCol)
-    .attr('stroke-width',2).attr('stroke-opacity',.7)
-    .attr('pointer-events','none');
-  rip.transition().duration(800).ease(d3.easeExpOut)
-    .attr('r',48).attr('stroke-opacity',0).remove();
-  // briefly light up downstream in subject color too
+  // ぽわっと光って、時間差で次→その次と伝播
+  glowNode(d.id, null, 0.85, 0);
   const downstream = LINKS
     .filter(l=>(l.source.id||l.source)===d.id)
     .map(l=>l.target.id||l.target);
-  downstream.slice(0,4).forEach((tid,i)=>{
-    setTimeout(()=>{
-      const tnd = NODES.find(x=>x.id===tid);
-      if(!tnd) return;
-      const tel = d3.selectAll('.node').filter(x=>x.id===tid);
-      tel.select('circle')
-        .transition().duration(180).attr('fill',subCol).attr('opacity',.7)
-        .transition().duration(500).attr('fill', masteryFill(tnd)).attr('opacity',1);
-      const tr = g.append('circle')
-        .attr('cx',tnd.x).attr('cy',tnd.y).attr('r',13)
-        .attr('fill','none').attr('stroke',subCol)
-        .attr('stroke-width',1).attr('stroke-opacity',.5)
-        .attr('pointer-events','none');
-      tr.transition().duration(600).ease(d3.easeExpOut)
-        .attr('r',35).attr('stroke-opacity',0).remove();
-    }, 180 + i*150);
+  downstream.slice(0,5).forEach((tid,i)=>{
+    setTimeout(()=>glowNode(tid, null, 0.4, 0), 320 + i*200);
+  });
+  // 2nd hop
+  downstream.slice(0,2).forEach(tid=>{
+    const hop2 = LINKS.filter(l=>(l.source.id||l.source)===tid).map(l=>l.target.id||l.target);
+    hop2.slice(0,3).forEach((tid2,i)=>{
+      setTimeout(()=>glowNode(tid2, null, 0.2, 0), 700 + i*180);
+    });
   });
 }
 
