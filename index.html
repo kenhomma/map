@@ -43,8 +43,8 @@ svg#graph{width:100%;height:100%;display:block;background:#000}
 .node:hover circle{stroke-width:3.5;filter:brightness(1.4)}
 .node text{pointer-events:none;user-select:none;text-anchor:middle;dominant-baseline:middle}
 .status-mastered circle{filter:drop-shadow(0 0 8px var(--mastered))}
-.node-unset circle{opacity:0.28}
-.node-unset text{opacity:0.25}
+.node-unset circle{opacity:0.45}
+.node-unset text{opacity:0.38}
 @keyframes softPulse{
   0%,100%{opacity:.55;filter:brightness(1)}
   50%    {opacity:1;  filter:brightness(1.9)}
@@ -360,22 +360,22 @@ const BASE_STROKE = {math:'#38bdf8',lang:'#a78bfa',sci:'#34d399',soc:'#fb923c'};
 // Mastery levels → progressively more saturated/bright fill
 function masteryFill(d) {
   const st = deriveStatus(d.id);
-  if(st==='unset') return '#1a1a1a'; // full gray until touched
+  if(st==='unset') return '#2a2a2e';
   const fills = {
-    math: {weak:'#1a3a50',learning:'#1e5a78',mastered:'#1a7aaa'},
-    lang: {weak:'#2d1a50',learning:'#3d2070',mastered:'#5a30a0'},
-    sci:  {weak:'#123828',learning:'#1a5038',mastered:'#1e7848'},
-    soc:  {weak:'#3a2010',learning:'#502c14',mastered:'#7a4018'},
+    math: {weak:'#1a4a6a',learning:'#1a6898',mastered:'#1a88cc'},
+    lang: {weak:'#3a1a68',learning:'#502090',mastered:'#6a28c0'},
+    sci:  {weak:'#154530',learning:'#1a6040',mastered:'#1e8050'},
+    soc:  {weak:'#452010',learning:'#683018',mastered:'#8a4020'},
   };
-  return fills[d.cat]?.[st] || '#1a1a1a';
+  return fills[d.cat]?.[st] || '#2a2a2e';
 }
 function masteryStroke(d) {
   const st = deriveStatus(d.id);
-  if(st==='unset') return '#333';
+  if(st==='unset') return '#484850';
   if(st==='weak') return 'var(--weak)';
   if(st==='mastered') return 'var(--mastered)';
   if(st==='learning') return {math:'#60d0ff',lang:'#c4a8ff',sci:'#5ef5c0',soc:'#ffb060'}[d.cat] || BASE_STROKE[d.cat];
-  return BASE_STROKE[d.cat];
+  return {math:'#3a8fc0',lang:'#7050b0',sci:'#2a7850',soc:'#905030'}[d.cat] || '#666';
 }
 function masteryPct(id) {
   const ps = problems.filter(p=>p.nodeId===id);
@@ -449,6 +449,8 @@ function buildGraph(){
   const linkSel=g.append('g').selectAll('line').data(links).enter().append('line')
     .attr('class',d=>`link${d.cross?' cross':''}`)
     .attr('stroke',d=>d.cross?'var(--cross)':SC[nodeMap[d.s]?.cat]||'#444')
+    .attr('stroke-opacity', d=>d.cross?0.12:0.18)
+    .attr('stroke-width', 1)
     .attr('marker-end',d=>`url(#arr-${d.cross?'cross':nodeMap[d.s]?.cat||'math'})`);
 
   const nodeSel=g.append('g').selectAll('g').data(nodes).enter().append('g')
@@ -457,13 +459,13 @@ function buildGraph(){
       .on('start',(e,d)=>{if(!e.active)simulation.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y})
       .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y})
       .on('end',(e,d)=>{if(!e.active)simulation.alphaTarget(0);d.fx=null;d.fy=null}))
-    .on('click',(e,d)=>{e.stopPropagation();focusNode(d);if(deriveStatus(d.id)==='unset')previewUnlock(d);openSidebar(d)})
+    .on('click',(e,d)=>{e.stopPropagation();focusNode(d);const delay=previewUnlock(d);setTimeout(()=>openSidebar(d),delay)})
     .on('mousemove',showTooltip).on('mouseleave',hideTooltip);
 
   nodeSel.append('circle').attr('r',d=>d.critical?17:13)
     .attr('fill', d => masteryFill(d))
     .attr('stroke', d => masteryStroke(d))
-    .attr('stroke-width', d => deriveStatus(d.id)==='weak'?3:2);
+    .attr('stroke-width', d => deriveStatus(d.id)==='weak'?3:deriveStatus(d.id)==='unset'?1.5:2);
 
   // subject label inside node
   nodeSel.append('text').attr('y',1).attr('font-size',8).attr('font-weight',700)
@@ -1220,23 +1222,49 @@ function renderCurriculum(){
 
 
 
-/* ══════════ PREVIEW UNLOCK (tap gray node) ══════════ */
+/* ══════════ PREVIEW UNLOCK (tap any node) ══════════ */
 function previewUnlock(d) {
-  // ぽわっと光って、時間差で次→その次と伝播
+  // 起点ノードをぽわっと光らせる
   glowNode(d.id, null, 0.85, 0);
-  const downstream = SIM_LINKS
-    .filter(l=>(l.source.id||l.source)===d.id)
-    .map(l=>l.target.id||l.target);
-  downstream.slice(0,5).forEach((tid,i)=>{
-    setTimeout(()=>glowNode(tid, null, 0.4, 0), 320 + i*200);
+  // シナプス伝達: 線→次ノード→線→次ノード
+  const hop1Links = SIM_LINKS.filter(l=>(l.source.id||l.source)===d.id);
+  const hop1Nodes = hop1Links.map(l=>l.target.id||l.target);
+  hop1Links.forEach((l,i)=>{
+    pulseLink(l, 280 + i*120);
+    const tid = l.target.id||l.target;
+    setTimeout(()=>glowNode(tid, null, 0.45, 0), 480 + i*120);
   });
   // 2nd hop
-  downstream.slice(0,2).forEach(tid=>{
-    const hop2 = SIM_LINKS.filter(l=>(l.source.id||l.source)===tid).map(l=>l.target.id||l.target);
-    hop2.slice(0,3).forEach((tid2,i)=>{
-      setTimeout(()=>glowNode(tid2, null, 0.2, 0), 700 + i*180);
+  hop1Nodes.slice(0,3).forEach((tid,hi)=>{
+    const hop2Links = SIM_LINKS.filter(l=>(l.source.id||l.source)===tid);
+    hop2Links.slice(0,2).forEach((l2,i)=>{
+      pulseLink(l2, 800 + hi*150 + i*100);
+      const tid2 = l2.target.id||l2.target;
+      setTimeout(()=>glowNode(tid2, null, 0.22, 0), 980 + hi*150 + i*100);
     });
   });
+  // ウィンドウ表示までの遅延を返す（伝播が一巡してから）
+  return 1400;
+}
+
+function pulseLink(linkData, delay) {
+  setTimeout(()=>{
+    const lid = linkData.index;
+    const linkEl = d3.selectAll('line.link').filter((d,i)=>i===lid);
+    if(linkEl.empty()) return;
+    const origStroke = linkEl.attr('stroke');
+    const src = linkData.source;
+    const glowCol = SUBJECT_HEX[src.cat] || '#fff';
+    linkEl.interrupt()
+      .transition().duration(180).ease(d3.easeSinIn)
+        .attr('stroke', glowCol)
+        .attr('stroke-width', 2.5)
+        .attr('stroke-opacity', 1)
+      .transition().duration(600).ease(d3.easeSinOut)
+        .attr('stroke', origStroke)
+        .attr('stroke-width', 1)
+        .attr('stroke-opacity', 0.18);
+  }, delay);
 }
 
 /* ══════════ INIT ══════════ */
