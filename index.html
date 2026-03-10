@@ -55,8 +55,8 @@ svg#graph{width:100%;height:100%;display:block;background:#000}
 }
 .prob-dot{transition:opacity .1s,transform .15s;transform-origin:center}
 .prob-dot:hover{opacity:.7;transform:scale(1.7)}
-#sidebar{width:280px;min-width:220px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .3s}
-#sidebar.collapsed{width:0;min-width:0}
+#sidebar{position:absolute;right:0;top:0;bottom:0;width:300px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transform:translateX(0);transition:transform .45s cubic-bezier(.22,.8,.36,1);z-index:20}
+#sidebar.collapsed{transform:translateX(100%);pointer-events:none}
 .sb-header{padding:12px 14px 10px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .sb-title{font-size:13px;font-weight:700}
 .close-btn{background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:16px;line-height:1}
@@ -459,7 +459,7 @@ function buildGraph(){
       .on('start',(e,d)=>{if(!e.active)simulation.alphaTarget(.3).restart();d.fx=d.x;d.fy=d.y})
       .on('drag',(e,d)=>{d.fx=e.x;d.fy=e.y})
       .on('end',(e,d)=>{if(!e.active)simulation.alphaTarget(0);d.fx=null;d.fy=null}))
-    .on('click',(e,d)=>{e.stopPropagation();focusNode(d);const delay=previewUnlock(d);setTimeout(()=>openSidebar(d),delay)})
+    .on('click',(e,d)=>{e.stopPropagation();focusNode(d);const delay=propagate(d);setTimeout(()=>openSidebar(d),delay)})
     .on('mousemove',showTooltip).on('mouseleave',hideTooltip);
 
   nodeSel.append('circle').attr('r',d=>d.critical?17:13)
@@ -1223,7 +1223,7 @@ function renderCurriculum(){
 
 
 /* ══════════ PREVIEW UNLOCK (tap any node) ══════════ */
-function previewUnlock(d) {
+function propagate(d) {
   // 起点ノードをぽわっと光らせる
   glowNode(d.id, null, 0.85, 0);
   // シナプス伝達: 線→次ノード→線→次ノード
@@ -1243,27 +1243,50 @@ function previewUnlock(d) {
       setTimeout(()=>glowNode(tid2, null, 0.22, 0), 980 + hi*150 + i*100);
     });
   });
-  // ウィンドウ表示までの遅延を返す（伝播が一巡してから）
-  return 1400;
+  // ウィンドウ表示: 2hop伝播完了後にスライドイン
+  return 1600;
 }
 
 function pulseLink(linkData, delay) {
   setTimeout(()=>{
+    const src = linkData.source;
+    const tgt = linkData.target;
+    if(!src || !tgt) return;
+    const x1=src.x, y1=src.y, x2=tgt.x, y2=tgt.y;
+    const glowCol = SUBJECT_HEX[src.cat] || '#fff';
+    const dist = Math.hypot(x2-x1, y2-y1);
+    const travelMs = Math.min(600, Math.max(280, dist * 1.8));
+
+    // SVGのg要素を取得
+    const svgG = d3.select('#graph').select('g');
+
+    // 光の粒（小さい円）を線上に作成してanimateで動かす
+    const particle = svgG.append('circle')
+      .attr('r', 4)
+      .attr('fill', glowCol)
+      .attr('opacity', 0.95)
+      .attr('cx', x1).attr('cy', y1)
+      .attr('pointer-events', 'none')
+      .style('filter', `drop-shadow(0 0 5px ${glowCol})`);
+
+    // d3 transitionで位置を移動
+    particle
+      .transition().duration(travelMs).ease(d3.easeLinear)
+        .attr('cx', x2).attr('cy', y2)
+        .attr('r', 3)
+      .transition().duration(120).ease(d3.easeExpOut)
+        .attr('r', 0)
+        .attr('opacity', 0)
+        .remove();
+
+    // 線も一瞬だけ淡く光らせる
     const lid = linkData.index;
     const linkEl = d3.selectAll('line.link').filter((d,i)=>i===lid);
-    if(linkEl.empty()) return;
-    const origStroke = linkEl.attr('stroke');
-    const src = linkData.source;
-    const glowCol = SUBJECT_HEX[src.cat] || '#fff';
-    linkEl.interrupt()
-      .transition().duration(180).ease(d3.easeSinIn)
-        .attr('stroke', glowCol)
-        .attr('stroke-width', 2.5)
-        .attr('stroke-opacity', 1)
-      .transition().duration(600).ease(d3.easeSinOut)
-        .attr('stroke', origStroke)
-        .attr('stroke-width', 1)
-        .attr('stroke-opacity', 0.18);
+    if(!linkEl.empty()){
+      linkEl.interrupt()
+        .transition().duration(travelMs * 0.4).attr('stroke-opacity', 0.55).attr('stroke-width', 1.8)
+        .transition().duration(travelMs * 0.8).attr('stroke-opacity', 0.18).attr('stroke-width', 1);
+    }
   }, delay);
 }
 
