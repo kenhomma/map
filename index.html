@@ -309,7 +309,7 @@ const EDGES = [
   {s:'c01',t:'c02'},{s:'c02',t:'c03'},{s:'c03',t:'c04'},{s:'c04',t:'c05'},{s:'c05',t:'c06'},
   {s:'c07',t:'c08'},{s:'c08',t:'c09'},{s:'c09',t:'c10'},{s:'c10',t:'c11'},{s:'c11',t:'c12'},
   {s:'c12',t:'c13'},{s:'c13',t:'c14'},{s:'c14',t:'c15'},{s:'c15',t:'c16'},
-  // ── 教科横断 ──
+  // ── 教科横断（オリジナル）──
   {s:'l08',t:'m21',cross:true},{s:'l09',t:'m21',cross:true},{s:'l08',t:'m23',cross:true},
   {s:'l09',t:'m13',cross:true},
   {s:'m07',t:'s04',cross:true},{s:'m09',t:'s04',cross:true},{s:'m07',t:'s09',cross:true},
@@ -320,22 +320,38 @@ const EDGES = [
   {s:'c01',t:'s12',cross:true},
   {s:'c12',t:'l09',cross:true},{s:'c13',t:'l09',cross:true},
   {s:'l14',t:'s04',cross:true},{s:'l14',t:'c13',cross:true},
-  // ── 拡張横断（相互）──
-  {s:'m02',t:'s09',cross:true},{s:'m24',t:'s09',cross:true},{s:'s09',t:'m24',cross:true},
-  {s:'m07',t:'s08',cross:true},{s:'m04',t:'s04',cross:true},
-  {s:'s05',t:'m07',cross:true},{s:'s07',t:'m07',cross:true},{s:'s04',t:'m09',cross:true},
-  {s:'m12',t:'s06',cross:true},{s:'s06',t:'m12',cross:true},
-  {s:'c11',t:'c13',cross:true},{s:'c13',t:'c11',cross:true},
-  {s:'c12',t:'c13',cross:true},{s:'c13',t:'c12',cross:true},
-  {s:'c11',t:'c14',cross:true},{s:'c14',t:'c15',cross:true},
-  {s:'c15',t:'c16',cross:true},{s:'c16',t:'c15',cross:true},
-  {s:'c10',t:'l13',cross:true},{s:'c08',t:'l13',cross:true},{s:'l13',t:'c08',cross:true},
-  {s:'c09',t:'l03',cross:true},{s:'l03',t:'c09',cross:true},{s:'c10',t:'l02',cross:true},
-  {s:'c03',t:'s01',cross:true},{s:'s01',t:'c03',cross:true},
-  {s:'c04',t:'s08',cross:true},{s:'c16',t:'s12',cross:true},
-  {s:'s15',t:'c01',cross:true},{s:'c07',t:'s13',cross:true},
-  {s:'c15',t:'l09',cross:true},{s:'l08',t:'c13',cross:true},
-  {s:'m29',t:'c06',cross:true},{s:'c06',t:'m29',cross:true},{s:'m08',t:'c04',cross:true},
+  // ── 教科横断（拡張・相互リレーション）──
+  // 理科×算数
+  {s:'m02',t:'s09',cross:true},   // 分数計算→水溶液（濃度）
+  {s:'m24',t:'s09',cross:true},{s:'s09',t:'m24',cross:true},  // 濃度↔水溶液
+  {s:'m07',t:'s08',cross:true},   // 割合→燃焼
+  {s:'m04',t:'s04',cross:true},   // 約数倍数→てこ
+  {s:'s05',t:'m07',cross:true},{s:'s07',t:'m07',cross:true},  // 電流・浮力→割合
+  {s:'s04',t:'m09',cross:true},   // てこ→比
+  {s:'m12',t:'s06',cross:true},{s:'s06',t:'m12',cross:true},  // 速さ↔光音
+  // 歴史×政治（相互）
+  {s:'c11',t:'c13',cross:true},{s:'c13',t:'c11',cross:true},  // 明治↔政治
+  {s:'c12',t:'c13',cross:true},{s:'c13',t:'c12',cross:true},  // 昭和↔政治
+  {s:'c11',t:'c14',cross:true},   // 明治→経済
+  {s:'c14',t:'c15',cross:true},   // 経済→国際
+  {s:'c15',t:'c16',cross:true},{s:'c16',t:'c15',cross:true},  // 国際↔環境
+  // 歴史×国語（古文）
+  {s:'c10',t:'l13',cross:true},{s:'c08',t:'l13',cross:true},  // 江戸・鎌倉→古文
+  {s:'l13',t:'c08',cross:true},   // 古文→鎌倉
+  {s:'c09',t:'l03',cross:true},{s:'l03',t:'c09',cross:true},  // 戦国↔ことわざ
+  {s:'c10',t:'l02',cross:true},   // 江戸→語彙
+  // 社会×理科
+  {s:'c03',t:'s01',cross:true},{s:'s01',t:'c03',cross:true},  // 農業↔植物
+  {s:'c04',t:'s08',cross:true},   // 工業→燃焼
+  {s:'c16',t:'s12',cross:true},   // 環境→気象
+  {s:'s15',t:'c01',cross:true},   // 地形変化→地理
+  {s:'c07',t:'s13',cross:true},   // 縄文→地層
+  // 国語×社会
+  {s:'c15',t:'l09',cross:true},   // 国際→説明文
+  {s:'l08',t:'c13',cross:true},   // 要旨→政治
+  // 算数×社会
+  {s:'m29',t:'c06',cross:true},{s:'c06',t:'m29',cross:true},  // 統計↔人口
+  {s:'m08',t:'c04',cross:true},   // 百分率→工業
 ];
 
 /* ══════════ STATE ══════════ */
@@ -428,31 +444,23 @@ function buildGraph(){
     setTimeout(twinkleStars, 600);
   }
   setTimeout(twinkleStars, 1000);
-
-  // 流れ星
   function shootingStar(){
-    const angle = Math.PI/6 + Math.random()*Math.PI/6;
-    const startX = Math.random()*W*0.8;
-    const startY = Math.random()*H*0.3;
-    const len = 60 + Math.random()*100;
-    const endX = startX + Math.cos(angle)*len;
-    const endY = startY + Math.sin(angle)*len;
-    const dur = 500 + Math.random()*400;
-    const star = starsG.append('line')
-      .attr('x1',startX).attr('y1',startY)
-      .attr('x2',startX).attr('y2',startY)
-      .attr('stroke','#fff').attr('stroke-width',1.2)
-      .attr('stroke-opacity',0).attr('pointer-events','none');
-    star.transition().duration(dur*0.2).attr('stroke-opacity',0.9)
+    const ang=Math.PI/6+Math.random()*Math.PI/6;
+    const sx=Math.random()*W*0.8,sy=Math.random()*H*0.3;
+    const len=60+Math.random()*100;
+    const ex=sx+Math.cos(ang)*len,ey=sy+Math.sin(ang)*len,dur=500+Math.random()*400;
+    starsG.append('line')
+      .attr('x1',sx).attr('y1',sy).attr('x2',sx).attr('y2',sy)
+      .attr('stroke','#fff').attr('stroke-width',1.2).attr('stroke-opacity',0)
+      .attr('pointer-events','none')
+      .transition().duration(dur*0.2).attr('stroke-opacity',0.9)
       .transition().duration(dur*0.6).ease(d3.easeLinear)
-        .attr('x1',endX-(endX-startX)*0.3).attr('y1',endY-(endY-startY)*0.3)
-        .attr('x2',endX).attr('y2',endY)
+        .attr('x1',ex-(ex-sx)*0.3).attr('y1',ey-(ey-sy)*0.3).attr('x2',ex).attr('y2',ey)
       .transition().duration(dur*0.4)
-        .attr('stroke-opacity',0).attr('x1',endX).attr('y1',endY)
-        .remove();
-    setTimeout(shootingStar, 8000 + Math.random()*17000);
+        .attr('stroke-opacity',0).attr('x1',ex).attr('y1',ey).remove();
+    setTimeout(shootingStar,8000+Math.random()*17000);
   }
-  setTimeout(shootingStar, 3000 + Math.random()*5000);
+  setTimeout(shootingStar,3000+Math.random()*5000);
 
   const defs=svgEl.append('defs');
   ['math','lang','sci','soc','cross'].forEach(t=>{
@@ -464,10 +472,10 @@ function buildGraph(){
   });
 
   const g=svgEl.append('g');
-  CURRENT_G = g;
+  CURRENT_G=g;
   svgEl.call(d3.zoom().scaleExtent([.1,5]).on('zoom',e=>{
     g.attr('transform',e.transform);
-    CURRENT_ZOOM = e.transform;
+    CURRENT_ZOOM=e.transform;
   }));
 
   const visIds=currentFilter==='all'?new Set(NODES.map(n=>n.id)):new Set(NODES.filter(n=>n.cat===currentFilter).map(n=>n.id));
@@ -1284,470 +1292,110 @@ function renderCurriculum(){
 
 
 
-/* ══════════ PROPAGATE (tap any node) ══════════ */
+/* ══════════ PREVIEW UNLOCK (tap any node) ══════════ */
 function propagate(d) {
+  // BFS伝播: visited setで無限ループ防止・全到達ノードに光を伝える
   const visited = new Set([d.id]);
-  const queue = [{id:d.id, depth:0, delay:0}];
+  const queue = [{id: d.id, depth: 0, delay: 0}];
   let maxDelay = 0;
+
+  // 起点ノードをぽわっと光らせる
   glowNode(d.id, null, 0.9, 0);
-  while(queue.length > 0){
+
+  while(queue.length > 0) {
     const {id, depth, delay} = queue.shift();
-    const outLinks = SIM_LINKS.filter(l=>(l.source.id||l.source)===id);
-    outLinks.forEach((link,i)=>{
-      const tid = link.target.id||link.target;
-      if(visited.has(tid)) return;
+    const outLinks = SIM_LINKS.filter(l => (l.source.id||l.source) === id);
+
+    outLinks.forEach((link, i) => {
+      const tid = link.target.id || link.target;
+      if(visited.has(tid)) return; // ループ防止
       visited.add(tid);
-      const src = link.source, tgt = link.target;
-      const dist = typeof src==='object'&&typeof tgt==='object'
-        ? Math.hypot((tgt.x||0)-(src.x||0),(tgt.y||0)-(src.y||0)) : 100;
-      const travelMs = Math.min(650, Math.max(250, dist*1.7));
-      const linkDelay = delay + i*50;
+
+      const src = link.source;
+      const tgt = link.target;
+      const dist = Math.hypot((tgt.x||0)-(src.x||0), (tgt.y||0)-(src.y||0));
+      const travelMs = Math.min(700, Math.max(220, dist * 1.6));
+
+      // 線に光の粒を走らせる
+      const linkDelay = delay + i * 60;
       pulseLink(link, linkDelay);
+
+      // ノード到達タイミング
       const nodeDelay = linkDelay + travelMs;
-      const intensity = Math.max(0.1, 0.85 - depth*0.15);
+      const intensity = Math.max(0.12, 0.8 - depth * 0.18);
       glowNode(tid, null, intensity, nodeDelay);
+
       if(nodeDelay > maxDelay) maxDelay = nodeDelay;
-      queue.push({id:tid, depth:depth+1, delay:nodeDelay+60});
+
+      // 次のhopをキューに追加（深さ制限なし・visited管理のみ）
+      queue.push({id: tid, depth: depth + 1, delay: nodeDelay + 80});
     });
   }
+
+  // 伝播完了後に星座ラインを一瞬描く
   setTimeout(()=>{
     drawConstellation([...visited]);
     setTimeout(()=>fadeConstellation(), 1800);
-  }, maxDelay+100);
-  return Math.min(maxDelay+400, 3000);
+  }, maxDelay + 100);
+
+  // ウィンドウはBFS完了後（最後のノード光終わり）にスライドイン
+  return Math.min(maxDelay + 400, 3000); // 最大3秒待ち
 }
 
+let constellationLines = null;
+function drawConstellation(nodeIds) {
+  const svgG = d3.select('#graph').select('g');
+  if(constellationLines) constellationLines.remove();
+  const visitedNodes = nodeIds.map(id=>SIM_NODES.find(n=>n.id===id)).filter(Boolean);
+  if(visitedNodes.length < 2) return;
+  constellationLines = svgG.insert('g',':first-child').attr('class','constellation').attr('pointer-events','none');
+  // 近い2ノード間だけ線を引く（全結合は多すぎるので距離制限）
+  for(let i=0;i<visitedNodes.length;i++){
+    for(let j=i+1;j<visitedNodes.length;j++){
+      const a=visitedNodes[i], b=visitedNodes[j];
+      const d=Math.hypot(a.x-b.x, a.y-b.y);
+      if(d<160){
+        const col = SUBJECT_HEX[a.cat]||'#fff';
+        constellationLines.append('line')
+          .attr('x1',a.x).attr('y1',a.y).attr('x2',b.x).attr('y2',b.y)
+          .attr('stroke',col).attr('stroke-opacity',0)
+          .attr('stroke-width',0.5)
+          .transition().duration(400).attr('stroke-opacity',0.2);
+      }
+    }
+  }
+}
+function fadeConstellation() {
+  if(constellationLines){
+    constellationLines.selectAll('line')
+      .transition().duration(1200)
+      .attr('stroke-opacity',0)
+      .on('end',function(d,i){if(i===0&&constellationLines){constellationLines.remove();constellationLines=null;}});
+  }
+}
 
 function pulseLink(linkData, delay) {
   setTimeout(()=>{
     if(!CURRENT_G) return;
-    const src = linkData.source;
-    const tgt = linkData.target;
-    if(!src || !tgt || typeof src !== 'object') return;
-    const x1=src.x||0, y1=src.y||0, x2=tgt.x||0, y2=tgt.y||0;
-    if(!x1 && !y1) return;
-    const glowCol = SUBJECT_HEX[src.cat||'math'] || '#38bdf8';
-    const dist = Math.hypot(x2-x1, y2-y1);
-    const travelMs = Math.min(650, Math.max(250, dist*1.7));
-    const particle = CURRENT_G.append('circle')
+    const src=linkData.source,tgt=linkData.target;
+    if(!src||!tgt||typeof src!=='object') return;
+    const x1=src.x||0,y1=src.y||0,x2=tgt.x||0,y2=tgt.y||0;
+    const glowCol=SUBJECT_HEX[src.cat||'math']||'#38bdf8';
+    const dist=Math.hypot(x2-x1,y2-y1);
+    const travelMs=Math.min(650,Math.max(250,dist*1.7));
+    CURRENT_G.append('circle')
       .attr('r',3.5).attr('fill',glowCol).attr('opacity',0.95)
-      .attr('cx',x1).attr('cy',y1).attr('pointer-events','none');
-    particle
+      .attr('cx',x1).attr('cy',y1).attr('pointer-events','none')
       .transition().duration(travelMs).ease(d3.easeLinear)
         .attr('cx',x2).attr('cy',y2).attr('r',2.5)
       .transition().duration(150)
         .attr('r',0).attr('opacity',0).remove();
-    const lid = linkData.index;
-    d3.selectAll('line.link').filter((d,i)=>i===lid)
+    d3.selectAll('line.link').filter((d,i)=>i===linkData.index)
       .interrupt()
       .transition().duration(travelMs*0.35).attr('stroke-opacity',0.6).attr('stroke-width',1.8)
       .transition().duration(travelMs*0.8).attr('stroke-opacity',0.18).attr('stroke-width',1);
   }, delay);
 }
-
-
-function unlockAnimate(nodeId, status) {
-  const col = status==='mastered'?'var(--mastered)':status==='weak'?'var(--weak)':'var(--learning)';
-  glowNode(nodeId, col, 1.0, 0);
-  // BFS up to 3 hops
-  const visited = new Set([nodeId]);
-  let frontier = [nodeId];
-  for(let hop=0; hop<3; hop++){
-    const next = [];
-    frontier.forEach(id=>{
-      SIM_LINKS.filter(l=>(l.source.id||l.source)===id)
-        .forEach(l=>{
-          const tid = l.target.id||l.target;
-          if(!visited.has(tid)){visited.add(tid);next.push(tid);}
-        });
-    });
-    const delay = 450 + hop*380;
-    const intensity = [0.55, 0.35, 0.2][hop];
-    next.forEach((tid,i)=>setTimeout(()=>glowNode(tid, null, intensity, i*80), delay));
-    frontier = next;
-    if(!next.length) break;
-  }
-}
-
-// subjectColor map using hex (no CSS vars - d3 attr needs resolved values)
-const SUBJECT_HEX = {math:'#38bdf8',lang:'#a78bfa',sci:'#34d399',soc:'#fb923c'};
-
-function glowNode(nodeId, col, intensity, extraDelay=0) {
-  setTimeout(()=>{
-    // SIM_NODESはbuildGraph内のlive nodes（x/y付き）
-    const nd = SIM_NODES.find(x=>x.id===nodeId) || NODES.find(x=>x.id===nodeId);
-    if(!nd) return;
-    const ndEl = d3.selectAll('g.node').filter(d=>d.id===nodeId);
-    if(ndEl.empty()) return;
-    const glowCol = col || SUBJECT_HEX[nd.cat] || '#aaa';
-    const baseFill = masteryFill(nd);
-    const dur = 250 + intensity * 200;
-    ndEl.select('circle')
-      .interrupt()
-      .transition().duration(dur).ease(d3.easeSinInOut)
-        .attr('fill', glowCol)
-        .attr('opacity', 0.85 + intensity * 0.15)
-        .attr('r', (nd.critical?17:13) + intensity*4)
-      .transition().duration(dur * 2.2).ease(d3.easeSinInOut)
-        .attr('fill', baseFill)
-        .attr('opacity', 1)
-        .attr('r', nd.critical?17:13);
-    // ラベルも一瞬明るく
-    ndEl.select('text')
-      .interrupt()
-      .transition().duration(dur).attr('opacity',1)
-      .transition().duration(dur*2).attr('opacity', deriveStatus(nodeId)==='unset'?0.25:0.9);
-  }, extraDelay);
-}
-
-function closeQuiz() {
-  document.getElementById('quiz-modal').style.display='none';
-  document.getElementById('overlay').style.display='none';
-  // reopen sidebar if node was selected
-  if(qState.nodeId) { const n=NODES.find(x=>x.id===qState.nodeId); if(n) openSidebar(n); }
-}
-
-
-
-/* ══════════ DRAW CANVAS ══════════ */
-let drawCtx=null, drawActive=false, drawColor='#f1f5f9', drawLast=null;
-function initCanvas(){
-  const cv=document.getElementById('draw-canvas');
-  if(!cv)return;
-  const dpr=window.devicePixelRatio||1;
-  cv.width=cv.offsetWidth*dpr; cv.height=140*dpr;
-  drawCtx=cv.getContext('2d');
-  drawCtx.scale(dpr,dpr);
-  drawCtx.lineCap='round';drawCtx.lineJoin='round';drawCtx.lineWidth=2;
-  drawCtx.strokeStyle='#f1f5f9';
-  const pos=(e)=>{
-    const r=cv.getBoundingClientRect();
-    const t=e.touches?e.touches[0]:e;
-    return {x:(t.clientX-r.left),y:(t.clientY-r.top)};
-  };
-  const start=(e)=>{e.preventDefault();drawActive=true;drawLast=pos(e);drawCtx.beginPath();drawCtx.moveTo(drawLast.x,drawLast.y)};
-  const move=(e)=>{
-    if(!drawActive)return;e.preventDefault();
-    const p=pos(e);
-    if(drawColor==='eraser'){drawCtx.clearRect(p.x-12,p.y-12,24,24)}
-    else{drawCtx.strokeStyle=drawColor;drawCtx.lineWidth=2;drawCtx.lineTo(p.x,p.y);drawCtx.stroke();drawCtx.beginPath();drawCtx.moveTo(p.x,p.y);}
-    drawLast=p;
-  };
-  const end=()=>{drawActive=false;drawCtx.beginPath()};
-  cv.addEventListener('mousedown',start);cv.addEventListener('mousemove',move);cv.addEventListener('mouseup',end);cv.addEventListener('mouseleave',end);
-  cv.addEventListener('touchstart',start,{passive:false});cv.addEventListener('touchmove',move,{passive:false});cv.addEventListener('touchend',end);
-}
-function setDrawColor(c){
-  drawColor=c;
-  document.getElementById('dc-pen').style.borderColor=c==='eraser'?'transparent':'var(--cross)';
-}
-function clearCanvas(){const cv=document.getElementById('draw-canvas');if(cv&&drawCtx)drawCtx.clearRect(0,0,cv.width,cv.height);}
-
-// init canvas when quiz opens
-const _origOpenQuiz = openQuiz;
-openQuiz = function(nodeId){
-  _origOpenQuiz(nodeId);
-  setTimeout(()=>{initCanvas();clearCanvas();},100);
-};
-
-/* ══════════ CURRICULUM ══════════ */
-// 四谷大塚 予習シリーズ カリキュラム（枠組み・AI推定）
-const CURRICULUM = {
-  math: [
-    {week:1,grade:'4年上',title:'整数の計算',nodeIds:["m01"]},
-    {week:2,grade:'4年上',title:'大きな数・数の性質',nodeIds:["m04"]},
-    {week:3,grade:'4年上',title:'小数の計算',nodeIds:["m01"]},
-    {week:4,grade:'4年上',title:'分数の基本',nodeIds:["m02"]},
-    {week:5,grade:'4年上',title:'四則混合計算',nodeIds:["m03"]},
-    {week:6,grade:'4年上',title:'角度・平面図形①',nodeIds:["m16"]},
-    {week:7,grade:'4年上',title:'面積の計算①',nodeIds:["m17"]},
-    {week:8,grade:'4年上',title:'約数・倍数',nodeIds:["m04"]},
-    {week:9,grade:'4年上',title:'素因数分解',nodeIds:["m05"]},
-    {week:10,grade:'4年上',title:'割合の基本',nodeIds:["m07"]},
-    {week:11,grade:'4年上',title:'百分率・歩合',nodeIds:["m08"]},
-    {week:12,grade:'4年上',title:'グラフ・統計',nodeIds:["m29"]},
-    {week:13,grade:'4年上',title:'植木算・数列',nodeIds:["m26"]},
-    {week:14,grade:'4年上',title:'周期・規則性',nodeIds:["m27"]},
-    {week:15,grade:'4年下',title:'分数の計算',nodeIds:["m02"]},
-    {week:16,grade:'4年下',title:'余りの計算',nodeIds:["m06"]},
-    {week:17,grade:'4年下',title:'比の基本',nodeIds:["m09"]},
-    {week:18,grade:'4年下',title:'比の応用',nodeIds:["m10"]},
-    {week:19,grade:'4年下',title:'速さの基本',nodeIds:["m12"]},
-    {week:20,grade:'4年下',title:'旅人算①',nodeIds:["m13"]},
-    {week:21,grade:'4年下',title:'鶴亀算',nodeIds:["m21"]},
-    {week:22,grade:'4年下',title:'差集め算',nodeIds:["m22"]},
-    {week:23,grade:'4年下',title:'円・おうぎ形',nodeIds:["m19"]},
-    {week:24,grade:'4年下',title:'立体図形①',nodeIds:["m20"]},
-    {week:25,grade:'4年下',title:'場合の数①',nodeIds:["m28"]},
-    {week:26,grade:'4年下',title:'売買損益',nodeIds:["m11"]},
-    {week:27,grade:'4年下',title:'仕事算',nodeIds:["m23"]},
-    {week:28,grade:'4年下',title:'まとめ・復習',nodeIds:["m01", "m03"]},
-    {week:29,grade:'5年上',title:'割合の応用・比',nodeIds:["m07", "m09"]},
-    {week:30,grade:'5年上',title:'速さの応用',nodeIds:["m12", "m13"]},
-    {week:31,grade:'5年上',title:'旅人算②・通過算',nodeIds:["m13", "m14"]},
-    {week:32,grade:'5年上',title:'流水算・時計算',nodeIds:["m14", "m15"]},
-    {week:33,grade:'5年上',title:'相似・縮図',nodeIds:["m18"]},
-    {week:34,grade:'5年上',title:'面積比',nodeIds:["m17", "m18"]},
-    {week:35,grade:'5年上',title:'立体図形②・体積',nodeIds:["m20"]},
-    {week:36,grade:'5年上',title:'濃度',nodeIds:["m24"]},
-    {week:37,grade:'5年上',title:'ニュートン算',nodeIds:["m25"]},
-    {week:38,grade:'5年上',title:'場合の数②',nodeIds:["m28"]},
-    {week:39,grade:'5年上',title:'比の連比・比例式',nodeIds:["m10"]},
-    {week:40,grade:'5年上',title:'数の規則性・N進法',nodeIds:["m27"]},
-    {week:41,grade:'5年上',title:'文章題総合①',nodeIds:["m21", "m22"]},
-    {week:42,grade:'5年上',title:'まとめ・模試対策',nodeIds:["m03", "m07"]},
-    {week:43,grade:'5年下',title:'割合と比の文章題',nodeIds:["m07", "m10"]},
-    {week:44,grade:'5年下',title:'速さと比',nodeIds:["m12", "m10"]},
-    {week:45,grade:'5年下',title:'図形と比・面積',nodeIds:["m17", "m18"]},
-    {week:46,grade:'5年下',title:'立体の切断・展開',nodeIds:["m20"]},
-    {week:47,grade:'5年下',title:'仕事算・ニュートン算',nodeIds:["m23", "m25"]},
-    {week:48,grade:'5年下',title:'濃度・売買の応用',nodeIds:["m24", "m11"]},
-    {week:49,grade:'5年下',title:'場合の数③・順列',nodeIds:["m28"]},
-    {week:50,grade:'5年下',title:'規則性・数列の応用',nodeIds:["m26", "m27"]},
-    {week:51,grade:'5年下',title:'平面図形の応用',nodeIds:["m16", "m17"]},
-    {week:52,grade:'5年下',title:'速さの総合',nodeIds:["m12", "m13", "m14"]},
-    {week:53,grade:'5年下',title:'文章題総合②',nodeIds:["m21", "m22", "m23"]},
-    {week:54,grade:'5年下',title:'統計・資料の整理',nodeIds:["m29"]},
-    {week:55,grade:'5年下',title:'素因数・整数問題',nodeIds:["m05", "m06"]},
-    {week:56,grade:'5年下',title:'総合まとめ',nodeIds:["m07", "m09", "m12"]},
-    {week:57,grade:'6年上',title:'割合・比の総合',nodeIds:["m07", "m09", "m10"]},
-    {week:58,grade:'6年上',title:'速さの総合演習',nodeIds:["m12", "m13", "m14", "m15"]},
-    {week:59,grade:'6年上',title:'図形の総合①',nodeIds:["m16", "m17", "m19"]},
-    {week:60,grade:'6年上',title:'図形の総合②・相似',nodeIds:["m18", "m20"]},
-    {week:61,grade:'6年上',title:'特殊算の総合',nodeIds:["m21", "m22", "m23", "m25"]},
-    {week:62,grade:'6年上',title:'場合の数・確率の総合',nodeIds:["m28"]},
-    {week:63,grade:'6年上',title:'規則性・数列の総合',nodeIds:["m26", "m27"]},
-    {week:64,grade:'6年上',title:'濃度・売買の総合',nodeIds:["m24", "m11"]},
-    {week:65,grade:'6年上',title:'整数問題の総合',nodeIds:["m04", "m05", "m06"]},
-    {week:66,grade:'6年上',title:'統計・グラフの総合',nodeIds:["m29"]},
-    {week:67,grade:'6年上',title:'入試頻出テーマ①',nodeIds:["m13", "m21"]},
-    {week:68,grade:'6年上',title:'入試頻出テーマ②',nodeIds:["m17", "m18"]},
-    {week:69,grade:'6年上',title:'入試頻出テーマ③',nodeIds:["m28", "m27"]},
-    {week:70,grade:'6年上',title:'夏前総仕上げ',nodeIds:["m01", "m07", "m12", "m16"]},
-  ],
-  lang: [
-    {week:1,grade:'4年上',title:'漢字①・言葉の知識',nodeIds:["l01"]},
-    {week:2,grade:'4年上',title:'語彙・慣用句①',nodeIds:["l02"]},
-    {week:3,grade:'4年上',title:'文の組み立て・品詞',nodeIds:["l04"]},
-    {week:4,grade:'4年上',title:'詩・短歌・俳句',nodeIds:["l12"]},
-    {week:5,grade:'4年上',title:'指示語・接続語',nodeIds:["l06"]},
-    {week:6,grade:'4年上',title:'段落・要点のつかみ方',nodeIds:["l07"]},
-    {week:7,grade:'4年上',title:'説明文読解①',nodeIds:["l09"]},
-    {week:8,grade:'4年上',title:'物語文読解①',nodeIds:["l10"]},
-    {week:9,grade:'4年上',title:'ことわざ・故事成語',nodeIds:["l03"]},
-    {week:10,grade:'4年上',title:'漢字②・熟語',nodeIds:["l01"]},
-    {week:11,grade:'4年上',title:'心情を読み取る①',nodeIds:["l11"]},
-    {week:12,grade:'4年上',title:'敬語の基本',nodeIds:["l05"]},
-    {week:13,grade:'4年上',title:'主題・要旨のまとめ方',nodeIds:["l08"]},
-    {week:14,grade:'4年上',title:'記述①・まとめ方',nodeIds:["l14"]},
-    {week:15,grade:'4年下',title:'漢字③・語彙②',nodeIds:["l01", "l02"]},
-    {week:16,grade:'4年下',title:'説明文読解②',nodeIds:["l09"]},
-    {week:17,grade:'4年下',title:'物語文・心情②',nodeIds:["l10", "l11"]},
-    {week:18,grade:'4年下',title:'古文・漢文の入門',nodeIds:["l13"]},
-    {week:19,grade:'4年下',title:'記述②・字数制限',nodeIds:["l14", "l15"]},
-    {week:20,grade:'4年下',title:'総合読解①',nodeIds:["l08", "l09"]},
-    {week:21,grade:'5年上',title:'論説文読解①',nodeIds:["l09"]},
-    {week:22,grade:'5年上',title:'小説・随筆読解',nodeIds:["l10", "l11"]},
-    {week:23,grade:'5年上',title:'語彙③・四字熟語',nodeIds:["l02", "l03"]},
-    {week:24,grade:'5年上',title:'記述③・理由説明',nodeIds:["l14"]},
-    {week:25,grade:'5年上',title:'古文読解①',nodeIds:["l13"]},
-    {week:26,grade:'5年下',title:'論説文読解②',nodeIds:["l09"]},
-    {week:27,grade:'5年下',title:'物語文読解③',nodeIds:["l10", "l11"]},
-    {week:28,grade:'5年下',title:'記述④・作文',nodeIds:["l15"]},
-    {week:29,grade:'6年上',title:'総合読解②',nodeIds:["l09", "l10"]},
-    {week:30,grade:'6年上',title:'入試形式・記述総合',nodeIds:["l14", "l15"]},
-  ],
-  sci: [
-    {week:1,grade:'4年上',title:'植物のつくり・光合成',nodeIds:["s01"]},
-    {week:2,grade:'4年上',title:'昆虫・動物のからだ',nodeIds:["s02"]},
-    {week:3,grade:'4年上',title:'水溶液の性質①',nodeIds:["s09"]},
-    {week:4,grade:'4年上',title:'空気と燃焼',nodeIds:["s08"]},
-    {week:5,grade:'4年上',title:'光・音・熱',nodeIds:["s06"]},
-    {week:6,grade:'4年上',title:'天気と気象①',nodeIds:["s12"]},
-    {week:7,grade:'4年上',title:'地層・岩石',nodeIds:["s13"]},
-    {week:8,grade:'4年上',title:'太陽・月・星',nodeIds:["s14"]},
-    {week:9,grade:'4年下',title:'てこのはたらき',nodeIds:["s04"]},
-    {week:10,grade:'4年下',title:'滑車・輪軸',nodeIds:["s04"]},
-    {week:11,grade:'4年下',title:'電流・回路',nodeIds:["s05"]},
-    {week:12,grade:'4年下',title:'磁石・電磁石',nodeIds:["s05"]},
-    {week:13,grade:'4年下',title:'力・ばね',nodeIds:["s07"]},
-    {week:14,grade:'4年下',title:'浮力',nodeIds:["s07"]},
-    {week:15,grade:'5年上',title:'水溶液②・気体',nodeIds:["s09", "s10"]},
-    {week:16,grade:'5年上',title:'状態変化・蒸留',nodeIds:["s11"]},
-    {week:17,grade:'5年上',title:'生態系・食物連鎖',nodeIds:["s03"]},
-    {week:18,grade:'5年上',title:'人体のしくみ',nodeIds:["s02"]},
-    {week:19,grade:'5年上',title:'流水・侵食・堆積',nodeIds:["s15"]},
-    {week:20,grade:'5年上',title:'天気②・前線',nodeIds:["s12"]},
-    {week:21,grade:'5年下',title:'てこ・滑車の計算',nodeIds:["s04"]},
-    {week:22,grade:'5年下',title:'電流の計算',nodeIds:["s05"]},
-    {week:23,grade:'5年下',title:'浮力の計算',nodeIds:["s07"]},
-    {week:24,grade:'5年下',title:'化学変化・計算',nodeIds:["s08", "s10"]},
-    {week:25,grade:'6年上',title:'物理総合（計算）',nodeIds:["s04", "s07"]},
-    {week:26,grade:'6年上',title:'化学総合',nodeIds:["s09", "s10", "s11"]},
-    {week:27,grade:'6年上',title:'生物・地学総合',nodeIds:["s01", "s02", "s03"]},
-    {week:28,grade:'6年上',title:'地学総合',nodeIds:["s12", "s13", "s14", "s15"]},
-  ],
-  soc: [
-    {week:1,grade:'4年上',title:'日本の地形・山地',nodeIds:["c01"]},
-    {week:2,grade:'4年上',title:'日本の川・平野・気候',nodeIds:["c01"]},
-    {week:3,grade:'4年上',title:'地図の見方・統計',nodeIds:["c02"]},
-    {week:4,grade:'4年上',title:'農業①（米・野菜）',nodeIds:["c03"]},
-    {week:5,grade:'4年上',title:'農業②（果物・畜産）',nodeIds:["c03"]},
-    {week:6,grade:'4年上',title:'漁業・林業',nodeIds:["c03"]},
-    {week:7,grade:'4年上',title:'工業①（種類・立地）',nodeIds:["c04"]},
-    {week:8,grade:'4年上',title:'工業②・貿易',nodeIds:["c04", "c05"]},
-    {week:9,grade:'4年下',title:'交通・通信・都市',nodeIds:["c05", "c06"]},
-    {week:10,grade:'4年下',title:'人口問題・環境',nodeIds:["c06", "c16"]},
-    {week:11,grade:'4年下',title:'エネルギー・資源',nodeIds:["c04", "c16"]},
-    {week:12,grade:'4年下',title:'縄文〜弥生・古墳時代',nodeIds:["c07"]},
-    {week:13,grade:'4年下',title:'飛鳥・奈良時代',nodeIds:["c07"]},
-    {week:14,grade:'4年下',title:'平安時代',nodeIds:["c08"]},
-    {week:15,grade:'5年上',title:'鎌倉時代',nodeIds:["c08"]},
-    {week:16,grade:'5年上',title:'室町・戦国時代',nodeIds:["c09"]},
-    {week:17,grade:'5年上',title:'安土桃山時代',nodeIds:["c09"]},
-    {week:18,grade:'5年上',title:'江戸時代①',nodeIds:["c10"]},
-    {week:19,grade:'5年上',title:'江戸時代②・文化',nodeIds:["c10"]},
-    {week:20,grade:'5年上',title:'明治維新',nodeIds:["c11"]},
-    {week:21,grade:'5年下',title:'明治〜大正時代',nodeIds:["c11"]},
-    {week:22,grade:'5年下',title:'昭和初期・戦争',nodeIds:["c12"]},
-    {week:23,grade:'5年下',title:'戦後〜現代',nodeIds:["c12"]},
-    {week:24,grade:'5年下',title:'日本国憲法・政治①',nodeIds:["c13"]},
-    {week:25,grade:'5年下',title:'政治②・国会・内閣',nodeIds:["c13"]},
-    {week:26,grade:'5年下',title:'経済・財政・税',nodeIds:["c14"]},
-    {week:27,grade:'6年上',title:'国際社会・外交',nodeIds:["c15"]},
-    {week:28,grade:'6年上',title:'環境・時事問題',nodeIds:["c16"]},
-    {week:29,grade:'6年上',title:'歴史総合',nodeIds:["c07", "c08", "c09", "c10", "c11", "c12"]},
-    {week:30,grade:'6年上',title:'公民・地理総合',nodeIds:["c13", "c14", "c15", "c01", "c02"]},
-  ],
-};
-
-let currTab='math';
-function openCurriculum(){
-  document.getElementById('overlay').style.display='block';
-  document.getElementById('curr-modal').style.display='block';
-  renderCurriculum();
-}
-function closeCurriculum(){
-  document.getElementById('curr-modal').style.display='none';
-  document.getElementById('overlay').style.display='none';
-}
-function setCurrTab(cat){
-  currTab=cat;
-  document.querySelectorAll('.curr-tab').forEach(b=>{
-    const isCat=b.getAttribute('onclick').includes("'"+cat+"'");
-    b.style.background=isCat?`var(--${cat})`:'transparent';
-    b.style.color=isCat?'#000':`var(--${cat})`;
-  });
-  renderCurriculum();
-}
-function renderCurriculum(){
-  const weeks=CURRICULUM[currTab]||[];
-  const SC2={math:'var(--math)',lang:'var(--lang)',sci:'var(--sci)',soc:'var(--soc)'};
-  const col=SC2[currTab];
-
-  // group by grade
-  const gradeOrder = ['4年上','4年下','5年上','5年下','6年上','6年下'];
-  const byGrade = {};
-  weeks.forEach(w => {
-    if(!byGrade[w.grade]) byGrade[w.grade] = [];
-    byGrade[w.grade].push(w);
-  });
-  let html = '';
-  gradeOrder.forEach(grade => {
-    if(!byGrade[grade]) return;
-    html += `<div style="font-size:10px;font-weight:700;color:#64748b;letter-spacing:1px;text-transform:uppercase;margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid #1a1a1a">${grade}</div>`;
-    html += '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:7px;margin-bottom:4px">';
-  weeks.forEach(w=>{
-    // check mastery of related nodes
-    const nodeStatuses=w.nodeIds.map(id=>deriveStatus(id));
-    const allMastered=nodeStatuses.every(s=>s==='mastered');
-    const anyWeak=nodeStatuses.some(s=>s==='weak');
-    const anyLearning=nodeStatuses.some(s=>s==='learning'||s==='mastered');
-    const hasProblems=w.nodeIds.some(id=>probsFor(id).length>0);
-
-    let bg='#0a0a0a', border='#2a2a2a', badge='', badgeCol='#64748b';
-    if(allMastered){bg='rgba(34,211,160,.08)';border='var(--mastered)';badge='✓ 定着';badgeCol='var(--mastered)'}
-    else if(anyWeak){bg='rgba(244,63,94,.06)';border='var(--weak)';badge='✗ 苦手';badgeCol='var(--weak)'}
-    else if(anyLearning){bg='rgba(245,158,11,.06)';border='var(--learning)';badge='◐ 学習中';badgeCol='var(--learning)'}
-
-    html+=`<div style="background:${bg};border:1.5px solid ${border};border-radius:10px;padding:10px 12px;cursor:pointer;transition:border-color .15s"
-      onmouseover="this.style.borderColor='${col}'" onmouseout="this.style.borderColor='${border}'"
-      onclick="closeCurriculum();setFilter('${currTab}');setTimeout(()=>{const n=NODES.find(x=>x.id==='${w.nodeIds[0]}');if(n)openSidebar(n)},300)">
-      <div style="font-size:9px;color:#64748b;font-weight:700;letter-spacing:1px;margin-bottom:4px">第${w.week}回</div>
-      <div style="font-size:12px;font-weight:600;color:#f1f5f9;line-height:1.4;margin-bottom:6px">${w.title}</div>
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <div style="display:flex;gap:4px;flex-wrap:wrap">${w.nodeIds.map(id=>{
-          const nd=NODES.find(x=>x.id===id);
-          const st=deriveStatus(id);
-          const dotCol=st==='mastered'?'var(--mastered)':st==='weak'?'var(--weak)':st==='learning'?'var(--learning)':'#2a2a2a';
-          return `<span style="width:8px;height:8px;border-radius:50%;background:${dotCol};display:inline-block;border:1px solid #333" title="${nd?.label||id}"></span>`;
-        }).join('')}</div>
-        ${badge?`<span style="font-size:9px;font-weight:700;color:${badgeCol}">${badge}</span>`:''}
-      </div>
-    </div>`;
-  });
-    html += '</div>';
-  });
-  // summary bar
-  const total=weeks.reduce((s,w)=>s+w.nodeIds.length,0);
-  const mastered=weeks.reduce((s,w)=>s+w.nodeIds.filter(id=>deriveStatus(id)==='mastered').length,0);
-  const pct=Math.round(mastered/total*100);
-  html=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;background:#0a0a0a;border:1px solid #2a2a2a;border-radius:10px;padding:10px 14px">
-    <div style="flex:1;height:6px;background:#1a1a1a;border-radius:3px;overflow:hidden">
-      <div style="height:100%;background:${col};border-radius:3px;width:${pct}%;transition:width .5s"></div>
-    </div>
-    <div style="font-size:12px;color:#f1f5f9;font-weight:700;white-space:nowrap">${mastered} / ${total} 単元定着 <span style="color:${col}">${pct}%</span></div>
-  </div>`+html;
-  document.getElementById('curr-body').innerHTML=html;
-}
-
-
-function pulseLink(linkData, delay) {
-  setTimeout(()=>{
-    const src = linkData.source;
-    const tgt = linkData.target;
-    if(!src || !tgt) return;
-    const x1=src.x, y1=src.y, x2=tgt.x, y2=tgt.y;
-    const glowCol = SUBJECT_HEX[src.cat] || '#fff';
-    const dist = Math.hypot(x2-x1, y2-y1);
-    const travelMs = Math.min(600, Math.max(280, dist * 1.8));
-
-    // SVGのg要素を取得
-    const svgG = d3.select('#graph').select('g');
-
-    // 光の粒（小さい円）を線上に作成してanimateで動かす
-    const particle = svgG.append('circle')
-      .attr('r', 4)
-      .attr('fill', glowCol)
-      .attr('opacity', 0.95)
-      .attr('cx', x1).attr('cy', y1)
-      .attr('pointer-events', 'none')
-      .style('filter', `drop-shadow(0 0 5px ${glowCol})`);
-
-    // d3 transitionで位置を移動
-    particle
-      .transition().duration(travelMs).ease(d3.easeLinear)
-        .attr('cx', x2).attr('cy', y2)
-        .attr('r', 3)
-      .transition().duration(120).ease(d3.easeExpOut)
-        .attr('r', 0)
-        .attr('opacity', 0)
-        .remove();
-
-    // 線も一瞬だけ淡く光らせる
-    const lid = linkData.index;
-    const linkEl = d3.selectAll('line.link').filter((d,i)=>i===lid);
-    if(!linkEl.empty()){
-      linkEl.interrupt()
-        .transition().duration(travelMs * 0.4).attr('stroke-opacity', 0.55).attr('stroke-width', 1.8)
-        .transition().duration(travelMs * 0.8).attr('stroke-opacity', 0.18).attr('stroke-width', 1);
-    }
-  }, delay);
-}
-
-/* ══════════ INIT ══════════ */
-buildGraph();
-window.addEventListener('resize',buildGraph);
 </script>
 
 <!-- QUIZ MODAL -->
